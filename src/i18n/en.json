@@ -1,0 +1,146 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "export": "Export",
+    "import": "Import",
+    "download": "Download",
+    "upload": "Upload",
+    "reset": "Reset",
+    "clear": "Clear",
+    "apply": "Apply",
+    "preview": "Preview",
+    "settings": "Settings",
+    "help": "Help",
+    "about": "About"
+  },
+  "navigation": {
+    "home": "Home",
+    "tools": "Tools",
+    "editor": "Editor",
+    "help": "Help",
+    "toggleTheme": "Toggle theme"
+  },
+  "home": {
+    "title": "Free PDF Tools",
+    "subtitle": "Privacy-first PDF manipulation studio",
+    "description": "All processing happens in your browser. No uploads, no accounts, no servers.",
+    "features": {
+      "privacy": "Complete Privacy",
+      "privacyDesc": "All operations happen locally in your browser. Your files never leave your device.",
+      "offline": "Works Offline",
+      "offlineDesc": "Once loaded, works completely offline. No internet connection required.",
+      "comprehensive": "Comprehensive Tools",
+      "comprehensiveDesc": "Everything you need to view, edit, convert, and manipulate PDF files."
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "openPdf": "Open PDF",
+      "mergePdfs": "Merge PDFs",
+      "splitPdf": "Split PDF",
+      "compressPdf": "Compress PDF",
+      "convertToPdf": "Convert to PDF",
+      "extractPages": "Extract Pages"
+    },
+    "recentFiles": {
+      "title": "Recent Files",
+      "noFiles": "No recent files"
+    }
+  },
+  "tools": {
+    "title": "PDF Tools",
+    "categories": {
+      "viewer": "Viewer & Organize",
+      "edit": "Edit",
+      "layout": "Layout",
+      "convert": "Convert",
+      "forms": "Forms",
+      "security": "Security",
+      "optimize": "Optimize",
+      "ocr": "OCR",
+      "advanced": "Advanced"
+    }
+  },
+  "editor": {
+    "title": "PDF Editor",
+    "panels": {
+      "files": "Files",
+      "operations": "Operations",
+      "properties": "Properties",
+      "thumbnails": "Pages"
+    },
+    "toolbar": {
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out",
+      "fitWidth": "Fit Width",
+      "fitPage": "Fit Page",
+      "rotate": "Rotate",
+      "search": "Search"
+    }
+  },
+  "tools-descriptions": {
+    "merge": "Combine multiple PDF files into one",
+    "split": "Split PDF into multiple files",
+    "extract": "Extract specific pages",
+    "reorder": "Reorder pages",
+    "rotate": "Rotate pages",
+    "crop": "Crop pages",
+    "nup": "Multiple pages per sheet",
+    "poster": "Split large pages into tiles",
+    "interleave": "Mix pages from multiple documents",
+    "pageNumbers": "Add page numbers",
+    "headers": "Add headers and footers",
+    "watermark": "Add watermarks",
+    "invert": "Invert colors",
+    "background": "Change background color",
+    "textColor": "Change text color",
+    "bookmarks": "Manage bookmarks",
+    "forms": "Fill forms",
+    "flatten": "Flatten forms",
+    "annotations": "Remove annotations",
+    "removeBlank": "Remove blank pages",
+    "convertFrom": "Convert images/text to PDF",
+    "convertTo": "Convert PDF to images",
+    "grayscale": "Convert to grayscale",
+    "ocr": "Add searchable text layer",
+    "compress": "Reduce file size",
+    "repair": "Repair damaged PDFs",
+    "encrypt": "Password protect",
+    "decrypt": "Remove password",
+    "permissions": "Set permissions",
+    "sign": "Digital signature",
+    "redact": "Redact sensitive information",
+    "sanitize": "Remove metadata and scripts",
+    "metadata": "Edit document information",
+    "linearize": "Optimize for web viewing"
+  },
+  "privacy": {
+    "title": "Your Privacy is Guaranteed",
+    "description": "Free PDF Tools operates entirely in your browser. This means:",
+    "points": [
+      "Your files never leave your device",
+      "No data is sent to any servers",
+      "No accounts or registration required",
+      "Works completely offline once loaded",
+      "No tracking or analytics",
+      "Open source and auditable code"
+    ],
+    "note": "All PDF processing, including OCR and conversion, happens locally using WebAssembly and Web Workers."
+  },
+  "errors": {
+    "fileLoad": "Failed to load PDF file",
+    "fileCorrupt": "PDF file appears to be corrupted",
+    "unsupportedFormat": "Unsupported file format",
+    "memoryLimit": "File too large for available memory",
+    "workerFailed": "Background processing failed",
+    "networkError": "Network error occurred",
+    "permissionDenied": "Permission denied",
+    "generic": "An unexpected error occurred"
+  }
+}
