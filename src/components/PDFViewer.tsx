@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
+import { PDFDocumentProxy } from 'pdfjs-dist'
 import { ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, Download, Maximize2 } from 'lucide-react'
-import { useAppStore } from '../../state/appStore'
+import { useAppStore } from '../state/store'
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.0.189/build/pdf.worker.min.js`
@@ -31,15 +31,20 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
-  const [scale, setScale] = useState(1.2)
   const [rotation, setRotation] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [renderedPages, setRenderedPages] = useState<Map<number, PageRenderInfo>>(new Map())
+  const [_renderedPages, setRenderedPages] = useState<Map<number, PageRenderInfo>>(new Map())
 
-  const { viewerState, updateViewerState } = useAppStore()
+  const { 
+    viewerZoom, 
+    viewerPage, 
+    setViewerZoom, 
+    setViewerPage, 
+    updateFile,
+    activeFileId
+  } = useAppStore()
 
   const loadPDF = useCallback(async (pdfFile: File) => {
     setLoading(true)
@@ -51,28 +56,25 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       
       setPdfDoc(pdf)
       setTotalPages(pdf.numPages)
-      setCurrentPage(1)
       setRenderedPages(new Map())
       
-      updateViewerState({
-        currentFile: pdfFile.name,
-        currentPage: 1,
-        totalPages: pdf.numPages,
-        scale,
-        rotation
-      })
+      // Update the file in the store with the correct page count
+      if (activeFileId) {
+        updateFile(activeFileId, { pageCount: pdf.numPages })
+      }
+      
     } catch (err) {
       console.error('Error loading PDF:', err)
       setError('Failed to load PDF file')
     } finally {
       setLoading(false)
     }
-  }, [scale, rotation, updateViewerState])
+  }, [activeFileId, updateFile])
 
   const renderPage = useCallback(async (pageNum: number, pdfDocument: PDFDocumentProxy) => {
     try {
       const page = await pdfDocument.getPage(pageNum)
-      const viewport = page.getViewport({ scale, rotation })
+      const viewport = page.getViewport({ scale: viewerZoom, rotation })
       
       // Create canvas
       const canvas = document.createElement('canvas')
@@ -95,7 +97,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       console.error(`Error rendering page ${pageNum}:`, err)
       throw err
     }
-  }, [scale, rotation])
+  }, [viewerZoom, rotation])
 
   const updateVisiblePages = useCallback(async () => {
     if (!pdfDoc || !canvasContainerRef.current) return
@@ -106,16 +108,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     try {
       // For now, render only the current page
       // TODO: Implement virtual scrolling for better performance
-      const pageInfo = await renderPage(currentPage, pdfDoc)
+      const pageInfo = await renderPage(viewerPage, pdfDoc)
       
       canvasContainerRef.current.appendChild(pageInfo.canvas)
       
-      setRenderedPages(new Map([[currentPage, pageInfo]]))
+      setRenderedPages(new Map([[viewerPage, pageInfo]]))
     } catch (err) {
       console.error('Error updating visible pages:', err)
       setError('Failed to render PDF page')
     }
-  }, [pdfDoc, currentPage, renderPage])
+  }, [pdfDoc, viewerPage, renderPage])
 
   // Load PDF when file changes
   useEffect(() => {
@@ -129,48 +131,41 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     if (pdfDoc) {
       updateVisiblePages()
     }
-  }, [pdfDoc, currentPage, scale, rotation, updateVisiblePages])
+  }, [pdfDoc, viewerPage, viewerZoom, rotation, updateVisiblePages])
 
   const handleZoomIn = () => {
-    const newScale = Math.min(scale * 1.25, 3)
-    setScale(newScale)
+    const newScale = Math.min(viewerZoom * 1.25, 3)
+    setViewerZoom(newScale)
     onZoomChange?.(newScale)
-    updateViewerState({ scale: newScale })
   }
 
   const handleZoomOut = () => {
-    const newScale = Math.max(scale / 1.25, 0.25)
-    setScale(newScale)
+    const newScale = Math.max(viewerZoom / 1.25, 0.25)
+    setViewerZoom(newScale)
     onZoomChange?.(newScale)
-    updateViewerState({ scale: newScale })
   }
 
   const handleRotate = () => {
-    const newRotation = (rotation + 90) % 360
-    setRotation(newRotation)
-    updateViewerState({ rotation: newRotation })
+    setRotation((rotation + 90) % 360)
   }
 
   const handlePrevPage = () => {
-    const newPage = Math.max(1, currentPage - 1)
-    setCurrentPage(newPage)
+    const newPage = Math.max(1, viewerPage - 1)
+    setViewerPage(newPage)
     onPageChange?.(newPage)
-    updateViewerState({ currentPage: newPage })
   }
 
   const handleNextPage = () => {
-    const newPage = Math.min(totalPages, currentPage + 1)
-    setCurrentPage(newPage)
+    const newPage = Math.min(totalPages, viewerPage + 1)
+    setViewerPage(newPage)
     onPageChange?.(newPage)
-    updateViewerState({ currentPage: newPage })
   }
 
   const handlePageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const page = parseInt(e.target.value)
     if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page)
+      setViewerPage(page)
       onPageChange?.(page)
-      updateViewerState({ currentPage: page })
     }
   }
 
@@ -236,7 +231,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={handlePrevPage}
-              disabled={currentPage <= 1}
+              disabled={viewerPage <= 1}
               className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Previous page"
             >
@@ -246,7 +241,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             <div className="flex items-center space-x-1">
               <input
                 type="number"
-                value={currentPage}
+                value={viewerPage}
                 onChange={handlePageInput}
                 min={1}
                 max={totalPages}
@@ -259,7 +254,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             
             <button
               onClick={handleNextPage}
-              disabled={currentPage >= totalPages}
+              disabled={viewerPage >= totalPages}
               className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Next page"
             >
@@ -278,7 +273,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             </button>
             
             <span className="text-sm text-gray-600 dark:text-gray-300 min-w-12 text-center">
-              {Math.round(scale * 100)}%
+              {Math.round(viewerZoom * 100)}%
             </span>
             
             <button

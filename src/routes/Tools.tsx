@@ -34,8 +34,18 @@ import {
   PenTool,
   EyeOff,
   Trash,
-  Info
+  Info,
+  ArrowLeft
 } from 'lucide-react'
+import MergeTool from '../components/tools/MergeTool'
+import SplitTool from '../components/tools/SplitTool'
+import WatermarkTool from '../components/tools/WatermarkTool'
+import NUpTool from '../components/tools/NUpTool'
+import PosterizeTool from '../components/tools/PosterizeTool'
+import InterleaveTool from '../components/tools/InterleaveTool'
+// Temporarily disable these tools until PDF utility methods are implemented
+// import PageNumbersTool from '../components/tools/PageNumbersTool'
+// import RotationTool from '../components/tools/RotationTool'
 
 interface Tool {
   id: string
@@ -44,13 +54,14 @@ interface Tool {
   icon: React.ComponentType<any>
   category: string
   comingSoon?: boolean
+  component?: React.ComponentType
 }
 
 const tools: Tool[] = [
   // Viewer & Organize
   { id: 'view', name: 'View PDF', description: 'Open and view PDF files', icon: Eye, category: 'viewer' },
-  { id: 'merge', name: 'Merge PDFs', description: 'Combine multiple PDF files into one', icon: Merge, category: 'viewer' },
-  { id: 'split', name: 'Split PDF', description: 'Split PDF into multiple files', icon: SplitSquareHorizontal, category: 'viewer' },
+  { id: 'merge', name: 'Merge PDFs', description: 'Combine multiple PDF files into one', icon: Merge, category: 'viewer', component: MergeTool },
+  { id: 'split', name: 'Split PDF', description: 'Split PDF into multiple files', icon: SplitSquareHorizontal, category: 'viewer', component: SplitTool },
   { id: 'extract', name: 'Extract Pages', description: 'Extract specific pages', icon: FileDown, category: 'viewer' },
   { id: 'reorder', name: 'Reorder Pages', description: 'Reorder pages', icon: RefreshCw, category: 'viewer' },
   { id: 'rotate', name: 'Rotate Pages', description: 'Rotate pages', icon: RotateCw, category: 'viewer' },
@@ -59,16 +70,16 @@ const tools: Tool[] = [
   { id: 'crop', name: 'Crop Pages', description: 'Crop pages', icon: Crop, category: 'edit' },
   { id: 'page-numbers', name: 'Page Numbers', description: 'Add page numbers', icon: Hash, category: 'edit' },
   { id: 'headers-footers', name: 'Headers & Footers', description: 'Add headers and footers', icon: Type, category: 'edit' },
-  { id: 'watermark', name: 'Watermark', description: 'Add watermarks', icon: Droplets, category: 'edit' },
+  { id: 'watermark', name: 'Watermark', description: 'Add watermarks', icon: Droplets, category: 'edit', component: WatermarkTool },
   { id: 'invert', name: 'Invert Colors', description: 'Invert colors', icon: RefreshCw, category: 'edit' },
   { id: 'background', name: 'Background Color', description: 'Change background color', icon: Palette, category: 'edit' },
   { id: 'text-color', name: 'Text Color', description: 'Change text color', icon: Palette, category: 'edit' },
   { id: 'bookmarks', name: 'Bookmarks', description: 'Manage bookmarks', icon: BookOpen, category: 'edit' },
 
   // Layout
-  { id: 'nup', name: 'N-Up Layout', description: 'Multiple pages per sheet', icon: Grid3x3, category: 'layout' },
-  { id: 'poster', name: 'Posterize', description: 'Split large pages into tiles', icon: Layers, category: 'layout' },
-  { id: 'interleave', name: 'Interleave Pages', description: 'Mix pages from multiple documents', icon: Layers, category: 'layout' },
+  { id: 'nup', name: 'N-Up Layout', description: 'Multiple pages per sheet', icon: Grid3x3, category: 'layout', component: NUpTool },
+  { id: 'poster', name: 'Posterize', description: 'Split large pages into tiles', icon: Layers, category: 'layout', component: PosterizeTool },
+  { id: 'interleave', name: 'Interleave Pages', description: 'Mix pages from multiple documents', icon: Layers, category: 'layout', component: InterleaveTool },
 
   // Convert
   { id: 'convert-to', name: 'Convert to PDF', description: 'Convert images/text to PDF', icon: FileText, category: 'convert' },
@@ -120,6 +131,7 @@ export function Tools() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all')
   const [searchQuery, setSearchQuery] = useState('')
+  const selectedTool = searchParams.get('tool')
 
   const filteredTools = tools.filter(tool => {
     const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory
@@ -129,12 +141,48 @@ export function Tools() {
   })
 
   const handleToolClick = (tool: Tool) => {
-    if (tool.comingSoon) {
+    if (tool.comingSoon || !tool.component) {
       return
     }
     // Navigate to the specific tool
     setSearchParams({ tool: tool.id })
-    // In a real app, this would open the tool interface
+  }
+
+  const handleBackToTools = () => {
+    setSearchParams({})
+  }
+
+  // If a tool is selected and has a component, render it
+  if (selectedTool) {
+    const tool = tools.find(t => t.id === selectedTool)
+    if (tool?.component) {
+      const ToolComponent = tool.component
+      return (
+        <div className="h-full flex flex-col">
+          {/* Breadcrumb */}
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <nav className="flex items-center space-x-2 text-sm">
+              <button
+                onClick={handleBackToTools}
+                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Tools</span>
+              </button>
+              <span className="text-gray-400">/</span>
+              <span className="text-gray-900 dark:text-white font-medium">
+                {tool.name}
+              </span>
+            </nav>
+          </div>
+          
+          {/* Tool Component */}
+          <div className="flex-1 overflow-auto">
+            <ToolComponent />
+          </div>
+        </div>
+      )
+    }
   }
 
   return (
@@ -203,14 +251,15 @@ export function Tools() {
         {filteredTools.map((tool) => {
           const Icon = tool.icon
           const category = categories.find(c => c.id === tool.category)
+          const isAvailable = !!tool.component && !tool.comingSoon
           
           return (
             <button
               key={tool.id}
               onClick={() => handleToolClick(tool)}
-              disabled={tool.comingSoon}
+              disabled={!isAvailable}
               className={`card p-6 text-left transition-all hover:shadow-lg group relative ${
-                tool.comingSoon 
+                !isAvailable 
                   ? 'opacity-60 cursor-not-allowed' 
                   : 'hover:scale-105 cursor-pointer'
               }`}
@@ -221,11 +270,19 @@ export function Tools() {
                 </div>
               )}
               
+              {!tool.comingSoon && !tool.component && (
+                <div className="absolute top-2 right-2 px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded">
+                  Planned
+                </div>
+              )}
+              
               <div className={`w-12 h-12 ${category?.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                 <Icon className="h-6 w-6 text-white" />
               </div>
               
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400">
+              <h3 className={`font-semibold text-gray-900 dark:text-white mb-2 transition-colors ${
+                isAvailable ? 'group-hover:text-primary-600 dark:group-hover:text-primary-400' : ''
+              }`}>
                 {tool.name}
               </h3>
               
@@ -237,11 +294,18 @@ export function Tools() {
                 <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                   {tool.category}
                 </span>
-                {!tool.comingSoon && (
-                  <svg className="h-4 w-4 text-gray-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                )}
+                <div className="flex items-center space-x-2">
+                  {isAvailable && (
+                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                      Available
+                    </span>
+                  )}
+                  {isAvailable && (
+                    <svg className="h-4 w-4 text-gray-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </div>
               </div>
             </button>
           )

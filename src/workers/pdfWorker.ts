@@ -285,77 +285,457 @@ class PDFWorker implements PDFWorkerAPI {
     const {
       cols = 2,
       rows = 2,
-      pageSize = { width: 612, height: 792 }, // Letter size in points
+      pageOrder = 'horizontal', // 'horizontal' | 'vertical'
       spacing = 10,
-      margin = 20
+      margin = 20,
+      orientation = 'auto', // 'auto' | 'portrait' | 'landscape'
+      scaling = 'fit', // 'fit' | 'fill' | 'custom'
+      customScale = 1.0,
+      border = { width: 0, color: '#000000' },
+      backgroundColor = '#ffffff',
+      addPageNumbers = false,
+      centerPages = true
     } = options
     
     const outputPdf = await PDFDocument.create()
-    const sourcePdfs = await Promise.all(pdfDatas.map(data => PDFDocument.load(data)))
     
-    // Collect all source pages
-    const allPages: { pdf: PDFDocument; pageIndex: number }[] = []
-    for (const sourcePdf of sourcePdfs) {
+    // Merge all input PDFs into one source PDF
+    const mergedSourcePdf = await PDFDocument.create()
+    for (const pdfData of pdfDatas) {
+      const sourcePdf = await PDFDocument.load(pdfData)
       const pageCount = sourcePdf.getPageCount()
-      for (let i = 0; i < pageCount; i++) {
-        allPages.push({ pdf: sourcePdf, pageIndex: i })
+      const pageIndices = Array.from({ length: pageCount }, (_, i) => i)
+      const copiedPages = await mergedSourcePdf.copyPages(sourcePdf, pageIndices)
+      copiedPages.forEach(page => mergedSourcePdf.addPage(page))
+    }
+    
+    const sourcePageCount = mergedSourcePdf.getPageCount()
+    if (sourcePageCount === 0) {
+      return await outputPdf.save()
+    }
+    
+    // Get first page dimensions for auto-orientation
+    const firstPage = mergedSourcePdf.getPage(0)
+    const { width: sourceWidth, height: sourceHeight } = firstPage.getSize()
+    
+    // Determine page size and orientation
+    let pageWidth: number, pageHeight: number
+    if (orientation === 'auto') {
+      // Auto-detect based on source page aspect ratio
+      const sourceIsLandscape = sourceWidth > sourceHeight
+      const layoutIsWide = cols > rows
+      if (sourceIsLandscape === layoutIsWide) {
+        pageWidth = 792; pageHeight = 612 // Letter landscape
+      } else {
+        pageWidth = 612; pageHeight = 792 // Letter portrait
       }
+    } else if (orientation === 'landscape') {
+      pageWidth = 792; pageHeight = 612
+    } else {
+      pageWidth = 612; pageHeight = 792
     }
     
     const pagesPerSheet = cols * rows
-    const totalSheets = Math.ceil(allPages.length / pagesPerSheet)
+    const totalSheets = Math.ceil(sourcePageCount / pagesPerSheet)
+    
+    // Parse background color
+    const bgColor = backgroundColor.startsWith('#') 
+      ? {
+          r: parseInt(backgroundColor.slice(1, 3), 16) / 255,
+          g: parseInt(backgroundColor.slice(3, 5), 16) / 255,
+          b: parseInt(backgroundColor.slice(5, 7), 16) / 255
+        }
+      : { r: 1, g: 1, b: 1 }
+    
+    // Parse border color
+    const borderColor = border.color.startsWith('#')
+      ? {
+          r: parseInt(border.color.slice(1, 3), 16) / 255,
+          g: parseInt(border.color.slice(3, 5), 16) / 255,
+          b: parseInt(border.color.slice(5, 7), 16) / 255
+        }
+      : { r: 0, g: 0, b: 0 }
     
     for (let sheet = 0; sheet < totalSheets; sheet++) {
-      const outputPage = outputPdf.addPage([pageSize.width, pageSize.height])
-      const cellWidth = (pageSize.width - 2 * margin - (cols - 1) * spacing) / cols
-      const cellHeight = (pageSize.height - 2 * margin - (rows - 1) * spacing) / rows
+      const outputPage = outputPdf.addPage([pageWidth, pageHeight])
+      
+      // Fill background color
+      if (backgroundColor !== '#ffffff') {
+        outputPage.drawRectangle({
+          x: 0,
+          y: 0,
+          width: pageWidth,
+          height: pageHeight,
+          color: rgb(bgColor.r, bgColor.g, bgColor.b)
+        })
+      }
+      
+      const cellWidth = (pageWidth - 2 * margin - (cols - 1) * spacing) / cols
+      const cellHeight = (pageHeight - 2 * margin - (rows - 1) * spacing) / rows
       
       for (let pos = 0; pos < pagesPerSheet; pos++) {
-        const sourcePageIndex = sheet * pagesPerSheet + pos
-        if (sourcePageIndex >= allPages.length) break
+        let sourcePageIndex: number
         
-        const sourcePage = allPages[sourcePageIndex]
-        const [embeddedPage] = await outputPdf.embedPages([sourcePage.pdf.getPage(sourcePage.pageIndex)])
+        // Calculate source page index based on page order
+        if (pageOrder === 'vertical') {
+          const col = Math.floor(pos / rows)
+          const row = pos % rows
+          sourcePageIndex = sheet * pagesPerSheet + col * rows + row
+        } else {
+          sourcePageIndex = sheet * pagesPerSheet + pos
+        }
         
-        const col = pos % cols
-        const row = Math.floor(pos / cols)
+        if (sourcePageIndex >= sourcePageCount) break
         
-        const x = margin + col * (cellWidth + spacing)
-        const y = pageSize.height - margin - (row + 1) * cellHeight - row * spacing
+        const sourcePage = mergedSourcePdf.getPage(sourcePageIndex)
+        const [embeddedPage] = await outputPdf.embedPages([sourcePage])
         
+        const col = pageOrder === 'vertical' ? Math.floor(pos / rows) : pos % cols
+        const row = pageOrder === 'vertical' ? pos % rows : Math.floor(pos / cols)
+        
+        let x = margin + col * (cellWidth + spacing)
+        let y = pageHeight - margin - (row + 1) * cellHeight - row * spacing
+        
+        // Calculate scaling
+        const { width: originalWidth, height: originalHeight } = sourcePage.getSize()
+        let scaleX = cellWidth / originalWidth
+        let scaleY = cellHeight / originalHeight
+        
+        if (scaling === 'fit') {
+          const scale = Math.min(scaleX, scaleY)
+          scaleX = scaleY = scale
+        } else if (scaling === 'custom') {
+          scaleX = scaleY = customScale
+        }
+        // For 'fill', use different scales for X and Y (already set)
+        
+        const scaledWidth = originalWidth * scaleX
+        const scaledHeight = originalHeight * scaleY
+        
+        // Center the page in the cell if requested
+        if (centerPages) {
+          x += (cellWidth - scaledWidth) / 2
+          y += (cellHeight - scaledHeight) / 2
+        }
+        
+        // Draw the embedded page
         outputPage.drawPage(embeddedPage, {
           x,
           y,
-          width: cellWidth,
-          height: cellHeight
+          width: scaledWidth,
+          height: scaledHeight
         })
+        
+        // Draw border if specified
+        if (border.width > 0) {
+          outputPage.drawRectangle({
+            x: margin + col * (cellWidth + spacing),
+            y: pageHeight - margin - (row + 1) * cellHeight - row * spacing,
+            width: cellWidth,
+            height: cellHeight,
+            borderColor: rgb(borderColor.r, borderColor.g, borderColor.b),
+            borderWidth: border.width
+          })
+        }
+        
+        // Add page numbers if requested
+        if (addPageNumbers) {
+          const pageNumber = sourcePageIndex + 1
+          const numberX = margin + col * (cellWidth + spacing) + cellWidth / 2
+          const numberY = pageHeight - margin - (row + 1) * cellHeight - row * spacing - 15
+          
+          outputPage.drawText(pageNumber.toString(), {
+            x: numberX,
+            y: numberY,
+            size: 8,
+            color: rgb(0, 0, 0)
+          })
+        }
       }
     }
     
     return await outputPdf.save()
   }
 
-  async posterize(pdfData: Uint8Array, _options: any = {}): Promise<Uint8Array> {
-    // Simplified posterize implementation
-    // In a full implementation, this would split large pages into tiles
-    const pdfDoc = await PDFDocument.load(pdfData)
-    return await pdfDoc.save()
+  async posterize(pdfData: Uint8Array, options: any = {}): Promise<Uint8Array> {
+    const {
+      scaleMode = 'fit',
+      customScale = 2.0,
+      tileSize = { width: 595, height: 842 }, // A4 by default
+      overlap = 20,
+      margin = 20,
+      addCutLines = true,
+      cutLineStyle = 'dashed',
+      cutLineColor = '#cccccc',
+      addLabels = true,
+      labelPosition = 'corner'
+      // outputFormat - used for future enhancements
+    } = options
+    
+    const sourcePdf = await PDFDocument.load(pdfData)
+    const sourcePageCount = sourcePdf.getPageCount()
+    
+    if (sourcePageCount === 0) {
+      return await sourcePdf.save()
+    }
+    
+    const outputPdf = await PDFDocument.create()
+    
+    // Parse cut line color
+    const cutColor = cutLineColor.startsWith('#')
+      ? {
+          r: parseInt(cutLineColor.slice(1, 3), 16) / 255,
+          g: parseInt(cutLineColor.slice(3, 5), 16) / 255,
+          b: parseInt(cutLineColor.slice(5, 7), 16) / 255
+        }
+      : { r: 0.8, g: 0.8, b: 0.8 }
+    
+    for (let pageIndex = 0; pageIndex < sourcePageCount; pageIndex++) {
+      const sourcePage = sourcePdf.getPage(pageIndex)
+      const { width: sourceWidth, height: sourceHeight } = sourcePage.getSize()
+      
+      // Calculate scale factor
+      let scale: number
+      if (scaleMode === 'custom') {
+        scale = customScale
+      } else {
+        // Auto-fit: scale to fit at least 2x2 tiles
+        scale = Math.max(2, Math.ceil(Math.max(sourceWidth / tileSize.width, sourceHeight / tileSize.height)))
+      }
+      
+      const scaledWidth = sourceWidth * scale
+      const scaledHeight = sourceHeight * scale
+      
+      // Calculate number of tiles needed
+      const tilesX = Math.ceil((scaledWidth - overlap) / (tileSize.width - overlap))
+      const tilesY = Math.ceil((scaledHeight - overlap) / (tileSize.height - overlap))
+      
+      // Create tiles
+      for (let tileY = 0; tileY < tilesY; tileY++) {
+        for (let tileX = 0; tileX < tilesX; tileX++) {
+          const tilePage = outputPdf.addPage([tileSize.width, tileSize.height])
+          
+          // Calculate the source area for this tile
+          const tileStartX = tileX * (tileSize.width - overlap)
+          const tileStartY = tileY * (tileSize.height - overlap)
+          
+          // Calculate the portion of the scaled page to show
+          const scaleX = scaledWidth / sourceWidth
+          const scaleY = scaledHeight / sourceHeight
+          
+          // Position the source page to show the correct portion
+          const offsetX = -tileStartX / scaleX + margin
+          const offsetY = tileSize.height - tileStartY / scaleY - sourceHeight * scaleY + margin
+          
+          // Embed and draw the source page
+          const [embeddedPage] = await outputPdf.embedPages([sourcePage])
+          tilePage.drawPage(embeddedPage, {
+            x: offsetX,
+            y: offsetY,
+            width: sourceWidth * scaleX,
+            height: sourceHeight * scaleY
+          })
+          
+          // Add cut lines if requested
+          if (addCutLines) {
+            const lineWidth = 1
+            
+            // Draw border cut lines
+            tilePage.drawRectangle({
+              x: margin,
+              y: margin,
+              width: tileSize.width - 2 * margin,
+              height: tileSize.height - 2 * margin,
+              borderColor: rgb(cutColor.r, cutColor.g, cutColor.b),
+              borderWidth: lineWidth
+            })
+            
+            // Draw overlap indicators if there's overlap
+            if (overlap > 0 && (tileX > 0 || tileY > 0 || tileX < tilesX - 1 || tileY < tilesY - 1)) {
+              // Left overlap
+              if (tileX > 0) {
+                tilePage.drawLine({
+                  start: { x: margin + overlap, y: margin },
+                  end: { x: margin + overlap, y: tileSize.height - margin },
+                  color: rgb(cutColor.r, cutColor.g, cutColor.b),
+                  thickness: lineWidth,
+                  dashArray: cutLineStyle === 'dashed' ? [5, 5] : cutLineStyle === 'dotted' ? [2, 2] : undefined
+                })
+              }
+              
+              // Top overlap
+              if (tileY > 0) {
+                tilePage.drawLine({
+                  start: { x: margin, y: tileSize.height - margin - overlap },
+                  end: { x: tileSize.width - margin, y: tileSize.height - margin - overlap },
+                  color: rgb(cutColor.r, cutColor.g, cutColor.b),
+                  thickness: lineWidth,
+                  dashArray: cutLineStyle === 'dashed' ? [5, 5] : cutLineStyle === 'dotted' ? [2, 2] : undefined
+                })
+              }
+            }
+          }
+          
+          // Add labels if requested
+          if (addLabels) {
+            const label = `${String.fromCharCode(65 + tileY)}${tileX + 1}` // A1, A2, B1, B2, etc.
+            const fontSize = 12
+            
+            let labelX: number, labelY: number
+            if (labelPosition === 'corner') {
+              labelX = tileSize.width - margin - 30
+              labelY = tileSize.height - margin - 15
+            } else {
+              labelX = tileSize.width - margin - 30
+              labelY = margin + 5
+            }
+            
+            // Draw label background
+            tilePage.drawRectangle({
+              x: labelX - 15,
+              y: labelY - 8,
+              width: 30,
+              height: 16,
+              color: rgb(1, 1, 1),
+              borderColor: rgb(0, 0, 0),
+              borderWidth: 1
+            })
+            
+            tilePage.drawText(label, {
+              x: labelX - 8,
+              y: labelY,
+              size: fontSize,
+              color: rgb(0, 0, 0)
+            })
+          }
+        }
+      }
+    }
+    
+    return await outputPdf.save()
   }
 
-  async interleavePages(pdfDatas: Uint8Array[], _options: any = {}): Promise<Uint8Array> {
-    const { mode: _mode = 'zip' } = _options // 'zip', 'alternate', etc.
+  async interleavePages(pdfDatas: Uint8Array[], options: any = {}): Promise<Uint8Array> {
+    const { 
+      mode = 'zip',
+      customPattern = [1, 2, 1, 2],
+      insertAfter = 1,
+      skipBlankPages = false
+      // preserveOrder - used for future enhancements
+    } = options
     
     const outputPdf = await PDFDocument.create()
     const sourcePdfs = await Promise.all(pdfDatas.map(data => PDFDocument.load(data)))
     
-    const maxPageCount = Math.max(...sourcePdfs.map(pdf => pdf.getPageCount()))
+    if (sourcePdfs.length === 0) {
+      return await outputPdf.save()
+    }
     
-    for (let pageIndex = 0; pageIndex < maxPageCount; pageIndex++) {
-      for (const sourcePdf of sourcePdfs) {
-        if (pageIndex < sourcePdf.getPageCount()) {
-          const [copiedPage] = await outputPdf.copyPages(sourcePdf, [pageIndex])
-          outputPdf.addPage(copiedPage)
+    // Collect all pages from source PDFs
+    const allSourcePages: Array<{ pdfIndex: number; pageIndex: number; page: any }> = []
+    
+    for (let pdfIndex = 0; pdfIndex < sourcePdfs.length; pdfIndex++) {
+      const pdf = sourcePdfs[pdfIndex]
+      const pageCount = pdf.getPageCount()
+      
+      for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+        const page = pdf.getPage(pageIndex)
+        
+        // Skip blank pages if requested (simplified check)
+        if (skipBlankPages) {
+          // This is a simplified blank page detection
+          // In a full implementation, you would analyze page content
+          const { width, height } = page.getSize()
+          if (width === 0 || height === 0) continue
         }
+        
+        allSourcePages.push({ pdfIndex, pageIndex, page })
+      }
+    }
+    
+    let pagesToAdd: Array<{ pdfIndex: number; pageIndex: number }> = []
+    
+    switch (mode) {
+      case 'zip': {
+        // Alternate pages from each document
+        const maxPages = Math.max(...sourcePdfs.map(pdf => pdf.getPageCount()))
+        for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+          for (let pdfIndex = 0; pdfIndex < sourcePdfs.length; pdfIndex++) {
+            if (pageIndex < sourcePdfs[pdfIndex].getPageCount()) {
+              pagesToAdd.push({ pdfIndex, pageIndex })
+            }
+          }
+        }
+        break
+      }
+      
+      case 'alternate': {
+        // Add all pages from first document, then all from second, etc.
+        for (let pdfIndex = 0; pdfIndex < sourcePdfs.length; pdfIndex++) {
+          const pageCount = sourcePdfs[pdfIndex].getPageCount()
+          for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+            pagesToAdd.push({ pdfIndex, pageIndex })
+          }
+        }
+        break
+      }
+      
+      case 'burst': {
+        // Insert pages from other documents at specific position in main document
+        const mainPdf = sourcePdfs[0]
+        const mainPageCount = mainPdf.getPageCount()
+        
+        // Add pages before insertion point
+        for (let pageIndex = 0; pageIndex < Math.min(insertAfter, mainPageCount); pageIndex++) {
+          pagesToAdd.push({ pdfIndex: 0, pageIndex })
+        }
+        
+        // Insert pages from other documents
+        for (let pdfIndex = 1; pdfIndex < sourcePdfs.length; pdfIndex++) {
+          const pageCount = sourcePdfs[pdfIndex].getPageCount()
+          for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+            pagesToAdd.push({ pdfIndex, pageIndex })
+          }
+        }
+        
+        // Add remaining pages from main document
+        for (let pageIndex = insertAfter; pageIndex < mainPageCount; pageIndex++) {
+          pagesToAdd.push({ pdfIndex: 0, pageIndex })
+        }
+        break
+      }
+      
+      case 'custom': {
+        // Follow custom pattern
+        let patternIndex = 0
+        const maxPagesPerDoc = sourcePdfs.map(pdf => pdf.getPageCount())
+        const currentPageIndex = new Array(sourcePdfs.length).fill(0)
+        
+        while (patternIndex < customPattern.length && currentPageIndex.some((idx, docIdx) => idx < maxPagesPerDoc[docIdx])) {
+          const docIndex = customPattern[patternIndex] - 1 // Convert to 0-based
+          
+          if (docIndex >= 0 && docIndex < sourcePdfs.length && currentPageIndex[docIndex] < maxPagesPerDoc[docIndex]) {
+            pagesToAdd.push({ pdfIndex: docIndex, pageIndex: currentPageIndex[docIndex] })
+            currentPageIndex[docIndex]++
+          }
+          
+          patternIndex = (patternIndex + 1) % customPattern.length
+          
+          // Prevent infinite loop
+          if (pagesToAdd.length > 10000) break
+        }
+        break
+      }
+    }
+    
+    // Copy and add pages to output PDF
+    for (const { pdfIndex, pageIndex } of pagesToAdd) {
+      try {
+        const sourcePdf = sourcePdfs[pdfIndex]
+        const [copiedPage] = await outputPdf.copyPages(sourcePdf, [pageIndex])
+        outputPdf.addPage(copiedPage)
+      } catch (error) {
+        console.warn(`Error copying page ${pageIndex} from document ${pdfIndex}:`, error)
       }
     }
     

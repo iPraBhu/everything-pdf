@@ -135,6 +135,21 @@ class WorkerManager {
     return worker.addPageNumbers(pdfData, options)
   }
 
+  async nUpLayout(pdfDatas: Uint8Array[], options: any = {}): Promise<Uint8Array> {
+    const worker = await this.getPDFWorker()
+    return worker.nUpLayout(pdfDatas, options)
+  }
+
+  async posterize(pdfData: Uint8Array, options: any = {}): Promise<Uint8Array> {
+    const worker = await this.getPDFWorker()
+    return worker.posterize(pdfData, options)
+  }
+
+  async interleavePages(pdfDatas: Uint8Array[], options: any = {}): Promise<Uint8Array> {
+    const worker = await this.getPDFWorker()
+    return worker.interleavePages(pdfDatas, options)
+  }
+
   async performOCR(
     imageData: ImageData, 
     options: { 
