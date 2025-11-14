@@ -1,20 +1,137 @@
-import React, { useState, useRef } from 'react'
-import { Upload, Merge, RefreshCw, AlertCircle, GripVertical, X, ArrowUp, ArrowDown } from 'lucide-react'
+import React, { useState, useRef, useCallback } from 'react'
+import { Upload, Merge, RefreshCw, AlertCircle, GripVertical, X, ArrowUp, ArrowDown, Settings, Zap, FileText, Maximize, Minimize } from 'lucide-react'
 import { useAppStore } from '../../state/store'
 import { useJobsStore } from '../../state/jobs'
 import { workerManager } from '../../lib/workerManager'
+import { globalBatchProcessor } from '../../lib/batchProcessor'
 
 interface FileWithPreview {
   file: File
   preview: string | null
   pageCount: number
   size: number
+  metadata?: {
+    title?: string
+    author?: string
+    subject?: string
+    creationDate?: Date
+    modificationDate?: Date
+  }
+}
+
+interface MergeOptions {
+  compression: {
+    enabled: boolean
+    quality: number
+    imageCompression: boolean
+  }
+  optimization: {
+    removeUnusedObjects: boolean
+    optimizeImages: boolean
+    linearize: boolean
+  }
+  metadata: {
+    preserveOriginal: boolean
+    customTitle?: string
+    customAuthor?: string
+    customSubject?: string
+  }
+  pageHandling: {
+    removeBlankPages: boolean
+    duplicateDetection: boolean
+  }
 }
 
 const MergeTool: React.FC = () => {
+  const handleMerge = async () => {
+    if (selectedFiles.length < 2) return
+    
+    setIsProcessing(true)
+    const jobId = Date.now().toString()
+    
+    try {
+      addJob({
+        id: jobId,
+        type: 'merge',
+        status: 'processing',
+        files: selectedFiles.map(f => f.file.name),
+        progress: 0,
+        createdAt: new Date()
+      })
+
+      const files = await Promise.all(
+        selectedFiles.map(f => f.file.arrayBuffer().then(ab => new Uint8Array(ab)))
+      )
+      
+      // Enhanced merge with optimization options
+      const result = await workerManager.submitJob({
+        type: 'merge',
+        files,
+        options: {
+          ...mergeOptions,
+          onProgress: (progress: number) => {
+            updateJob(jobId, { progress })
+          }
+        }
+      })
+      
+      // Calculate actual size reduction
+      const originalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0)
+      const newSize = result.byteLength
+      const reduction = Math.round(((originalSize - newSize) / originalSize) * 100)
+      setSizeReduction(reduction)
+      
+      const mergedFile = new File([result], 'merged-optimized.pdf', { type: 'application/pdf' })
+      addFile(mergedFile)
+      
+      updateJob(jobId, {
+        status: 'completed',
+        progress: 100,
+        result: {
+          fileName: 'merged-optimized.pdf',
+          fileSize: newSize,
+          sizeReduction: reduction
+        }
+      })
+      
+      setSelectedFiles([])
+    } catch (error) {
+      console.error('Merge failed:', error)
+      updateJob(jobId, {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
   const [selectedFiles, setSelectedFiles] = useState<FileWithPreview[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
+  const [mergeOptions, setMergeOptions] = useState<MergeOptions>({
+    compression: {
+      enabled: true,
+      quality: 0.8,
+      imageCompression: true
+    },
+    optimization: {
+      removeUnusedObjects: true,
+      optimizeImages: true,
+      linearize: false
+    },
+    metadata: {
+      preserveOriginal: true,
+      customTitle: '',
+      customAuthor: '',
+      customSubject: ''
+    },
+    pageHandling: {
+      removeBlankPages: false,
+      duplicateDetection: false
+    }
+  })
+  const [sizeReduction, setSizeReduction] = useState<number>(0)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { addFile } = useAppStore()
@@ -29,18 +146,26 @@ const MergeTool: React.FC = () => {
       try {
         const arrayBuffer = await file.arrayBuffer()
         const uint8Array = new Uint8Array(arrayBuffer)
-        const { loadPDFDocument, getPageThumbnail, getPDFInfo } = await import('../../lib/pdf')
+        const { loadPDFDocument, getPageThumbnail, getPDFInfo, extractMetadata } = await import('../../lib/pdf')
         
         const doc = await loadPDFDocument(uint8Array)
         const info = await getPDFInfo(doc)
+        const metadata = await extractMetadata(doc)
         const page = await doc.getPage(1)
-        const thumbnail = await getPageThumbnail(page, 100)
+        const thumbnail = await getPageThumbnail(page, 150) // Higher quality thumbnails
         
         newFilesWithPreviews.push({
           file,
           preview: thumbnail,
           pageCount: info.pageCount,
-          size: file.size
+          size: file.size,
+          metadata: {
+            title: metadata.info?.Title || file.name,
+            author: metadata.info?.Author || 'Unknown',
+            subject: metadata.info?.Subject || '',
+            creationDate: metadata.info?.CreationDate,
+            modificationDate: metadata.info?.ModDate
+          }
         })
       } catch (error) {
         console.error('Error processing file:', error)
@@ -48,7 +173,11 @@ const MergeTool: React.FC = () => {
           file,
           preview: null,
           pageCount: 0,
-          size: file.size
+          size: file.size,
+          metadata: {
+            title: file.name,
+            author: 'Unknown'
+          }
         })
       }
     }
@@ -98,6 +227,34 @@ const MergeTool: React.FC = () => {
       newFiles[newIndex] = temp
       return newFiles
     })
+  }
+
+  const calculateEstimatedSize = useCallback(() => {
+    const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0)
+    const compressionRatio = mergeOptions.compression.enabled ? mergeOptions.compression.quality : 1
+    const optimizationReduction = mergeOptions.optimization.removeUnusedObjects ? 0.85 : 1
+    return Math.round(totalSize * compressionRatio * optimizationReduction)
+  }, [selectedFiles, mergeOptions])
+
+  const addToBatch = () => {
+    if (selectedFiles.length < 2) return
+
+    globalBatchProcessor.addOperation({
+      type: 'merge',
+      files: selectedFiles.map(f => f.file),
+      options: mergeOptions,
+      priority: 5,
+      onProgress: (progress) => {
+        // Update progress in UI
+      },
+      onComplete: (result) => {
+        const resultFile = new File([result], 'merged.pdf', { type: 'application/pdf' })
+        addFile(resultFile)
+      }
+    })
+
+    // Clear files after adding to batch
+    setSelectedFiles([])
   }
 
   const getTotalPages = () => selectedFiles.reduce((total, file) => total + file.pageCount, 0)
