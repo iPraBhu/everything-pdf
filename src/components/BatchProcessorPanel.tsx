@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Play, Pause, Square, Trash2, Clock, CheckCircle, XCircle, AlertCircle, BarChart3 } from 'lucide-react'
-import { globalBatchProcessor, BatchOperation } from '../../lib/batchProcessor'
+import { globalBatchProcessor } from '../lib/batchProcessor'
 
-interface BatchOperationStatus extends BatchOperation {
-  status: 'queued' | 'processing' | 'completed' | 'failed'
+interface BatchOperationStatus {
+  id: string
+  type: string
+  files: File[]
+  status: 'pending' | 'processing' | 'completed' | 'failed'
   progress: number
-  result?: any
   error?: string
-  startTime?: number
-  endTime?: number
 }
 
 export const BatchProcessorPanel: React.FC = () => {
@@ -208,12 +208,12 @@ export const BatchProcessorPanel: React.FC = () => {
                             <>Progress: {Math.round(operation.progress)}%</>
                           )}
                           {operation.status === 'completed' && (
-                            <>Completed in {formatDuration(operation.startTime, operation.endTime)}</>
+                            <>Completed</>
                           )}
                           {operation.status === 'failed' && (
                             <>Failed: {operation.error}</>
                           )}
-                          {operation.status === 'queued' && (
+                          {operation.status === 'pending' && (
                             <>Waiting to process</>
                           )}
                         </div>

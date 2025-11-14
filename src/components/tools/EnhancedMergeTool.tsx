@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Upload, Merge, RefreshCw, AlertCircle, GripVertical, X, ArrowUp, ArrowDown, Settings, Zap, FileText, Maximize, Minimize } from 'lucide-react'
+import { Upload, Merge, RefreshCw, AlertCircle, GripVertical, X, ArrowUp, ArrowDown, Settings, Zap, FileText, Minimize } from 'lucide-react'
 import { useAppStore } from '../../state/store'
 import { useJobsStore } from '../../state/jobs'
 import { workerManager } from '../../lib/workerManager'
 import { globalBatchProcessor } from '../../lib/batchProcessor'
+import type { PDFFile } from '../../state/store'
 
 interface FileWithPreview {
   file: File
@@ -188,10 +189,12 @@ const EnhancedMergeTool: React.FC = () => {
       addJob({
         id: jobId,
         type: 'merge',
-        status: 'processing',
-        files: selectedFiles.map(f => f.file.name),
-        progress: 0,
-        createdAt: new Date()
+        name: 'Enhanced PDF Merge',
+        status: 'running' as const,
+        fileIds: selectedFiles.map(f => f.file.name),
+        progress: { current: 0, total: 100, message: 'Starting...' },
+        startTime: Date.now(),
+        cancellable: true
       })
 
       const files = await Promise.all(
@@ -205,7 +208,7 @@ const EnhancedMergeTool: React.FC = () => {
         options: {
           ...mergeOptions,
           onProgress: (progress: number) => {
-            updateJob(jobId, { progress })
+            updateJob(jobId, { progress: { current: progress, total: 100, message: 'Merging...' } })
           }
         }
       })
@@ -217,11 +220,20 @@ const EnhancedMergeTool: React.FC = () => {
       setSizeReduction(reduction)
       
       const mergedFile = new File([result], 'merged-optimized.pdf', { type: 'application/pdf' })
-      addFile(mergedFile)
+      // Convert File to PDFFile
+      const pdfFile: PDFFile = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        name: mergedFile.name,
+        size: mergedFile.size,
+        pageCount: 1, // Will be updated after loading
+        data: new Uint8Array(await mergedFile.arrayBuffer()),
+        lastModified: mergedFile.lastModified || Date.now()
+      }
+      addFile(pdfFile)
       
       updateJob(jobId, {
         status: 'completed',
-        progress: 100,
+        progress: { current: 100, total: 100, message: 'Completed' },
         result: {
           fileName: 'merged-optimized.pdf',
           fileSize: newSize,
@@ -241,7 +253,7 @@ const EnhancedMergeTool: React.FC = () => {
     }
   }
 
-  const addToBatch = () => {
+  const addToBatch = async () => {
     if (selectedFiles.length < 2) return
 
     globalBatchProcessor.addOperation({
@@ -252,9 +264,18 @@ const EnhancedMergeTool: React.FC = () => {
       onProgress: (progress) => {
         // Update progress in UI
       },
-      onComplete: (result) => {
+      onComplete: async (result) => {
         const resultFile = new File([result], 'merged.pdf', { type: 'application/pdf' })
-        addFile(resultFile)
+        // Convert File to PDFFile
+        const pdfFile: PDFFile = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name: resultFile.name,
+          size: resultFile.size,
+          pageCount: 1, // Will be updated after loading
+          data: new Uint8Array(await resultFile.arrayBuffer()),
+          lastModified: resultFile.lastModified || Date.now()
+        }
+        addFile(pdfFile)
       }
     })
 

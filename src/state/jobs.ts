@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'processing'
 
 export interface JobProgress {
   current: number
@@ -9,12 +9,14 @@ export interface JobProgress {
   message?: string
 }
 
+export type JobProgressValue = JobProgress | number
+
 export interface Job {
   id: string
   type: string
   name: string
   status: JobStatus
-  progress?: JobProgress
+  progress?: JobProgressValue
   startTime: number
   endTime?: number
   error?: string

@@ -1,9 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Upload, Droplets, RefreshCw, AlertCircle, Eye, Image, Type, Zap, Palette, Move, RotateCw } from 'lucide-react'
+import { Upload, Droplets, RefreshCw, AlertCircle, Eye, Type, Settings, Download, Palette, Move, RotateCw, Layers, Plus, Trash2, Copy } from 'lucide-react'
 import { useAppStore } from '../../state/store'
 import { useJobsStore } from '../../state/jobs'
 import { workerManager } from '../../lib/workerManager'
-import { globalBatchProcessor } from '../../lib/batchProcessor'
 
 interface WatermarkTemplate {
   id: string
@@ -20,7 +19,7 @@ interface WatermarkConfig {
   position: {
     x: number // percentage from left
     y: number // percentage from top
-    preset?: 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center' | 'custom'
+    preset?: string
   }
   style: {
     opacity: number
@@ -147,84 +146,78 @@ const AdvancedWatermarkTool: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [watermarkConfig, setWatermarkConfig] = useState<WatermarkConfig>(DEFAULT_TEMPLATES[0].config)
-  const [customTemplates, setCustomTemplates] = useState<WatermarkTemplate[]>([])
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
   const [activeTab, setActiveTab] = useState<'text' | 'image' | 'templates'>('text')
-  
+  const [customTemplates, setCustomTemplates] = useState<WatermarkTemplate[]>([])
+  const [preview, setPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const imageInputRef = useRef<HTMLInputElement>(null)
+
   const { addFile } = useAppStore()
   const { addJob, updateJob } = useJobsStore()
 
-  const handleFileSelect = async (files: FileList) => {
-    const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf')
-    setSelectedFiles(prev => [...prev, ...pdfFiles])
-  }
-
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const imageData = event.target?.result as string
-        setWatermarkConfig(prev => ({
-          ...prev,
-          type: 'image',
-          imageData,
-          image: {
-            width: 100,
-            height: 100,
-            maintainAspectRatio: true,
-            ...prev.image
-          }
-        }))
-        setActiveTab('image')
-      }
-      reader.readAsDataURL(file)
+  const [watermarkConfig, setWatermarkConfig] = useState<WatermarkConfig>({
+    type: 'text',
+    content: 'WATERMARK',
+    position: { x: 50, y: 50, preset: 'center' },
+    style: { opacity: 0.5, rotation: 0, scale: 1 },
+    text: {
+      fontSize: 24,
+      fontFamily: 'Arial',
+      color: '#888888',
+      bold: false,
+      italic: false
+    },
+    advanced: {
+      blendMode: 'normal',
+      layer: 'behind',
+      pageRange: 'all'
     }
-  }
+  })
 
-  const generatePreview = useCallback(async () => {
-    if (selectedFiles.length === 0) return
+  const handleFileSelect = useCallback((files: FileList) => {
+    const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf')
+    if (pdfFiles.length === 0) {
+      alert('Please select PDF files only')
+      return
+    }
+    setSelectedFiles(prev => [...prev, ...pdfFiles])
+    if (pdfFiles.length > 0 && !preview) {
+      generatePreview(pdfFiles[0])
+    }
+  }, [preview])
 
+  const generatePreview = async (file: File) => {
     try {
-      const file = selectedFiles[0]
       const arrayBuffer = await file.arrayBuffer()
       const uint8Array = new Uint8Array(arrayBuffer)
-      
       const { loadPDFDocument, getPageThumbnail } = await import('../../lib/pdf')
       const doc = await loadPDFDocument(uint8Array)
       const page = await doc.getPage(1)
-      const thumbnail = await getPageThumbnail(page, 300)
-      
-      setPreviewImage(thumbnail)
-      setShowPreview(true)
+      const thumbnail = await getPageThumbnail(page, 200)
+      setPreview(thumbnail)
     } catch (error) {
-      console.error('Preview generation failed:', error)
+      console.error('Error generating preview:', error)
     }
-  }, [selectedFiles, watermarkConfig])
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    
-    const droppedFiles = e.dataTransfer.files
-    handleFileSelect(droppedFiles)
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(true)
-  }
+  }, [])
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
-  }
+  }, [])
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    if (e.dataTransfer.files) {
+      handleFileSelect(e.dataTransfer.files)
+    }
+  }, [handleFileSelect])
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       handleFileSelect(e.target.files)
     }
@@ -249,6 +242,7 @@ const AdvancedWatermarkTool: React.FC = () => {
         config: { ...watermarkConfig }
       }
       setCustomTemplates(prev => [...prev, newTemplate])
+      console.log('Template saved successfully')
     }
   }
 
@@ -260,7 +254,7 @@ const AdvancedWatermarkTool: React.FC = () => {
         position: {
           x: position.x,
           y: position.y,
-          preset: preset as any
+          preset
         }
       }))
     }
@@ -276,10 +270,451 @@ const AdvancedWatermarkTool: React.FC = () => {
       addJob({
         id: jobId,
         type: 'watermark',
+        name: `Apply watermark to ${selectedFiles.length} file(s)`,
         status: 'processing',
-        files: selectedFiles.map(f => f.name),
+        fileIds: selectedFiles.map(f => f.name),
         progress: 0,
-        createdAt: new Date()
+        startTime: Date.now(),
+        cancellable: true
       })
 
-      const files = await Promise.all(\n        selectedFiles.map(f => f.arrayBuffer().then(ab => new Uint8Array(ab)))\n      )\n      \n      const results = await workerManager.submitJob({\n        type: 'watermark',\n        files,\n        options: {\n          watermark: watermarkConfig,\n          onProgress: (progress: number) => {\n            updateJob(jobId, { progress })\n          }\n        }\n      })\n      \n      // Add watermarked files to the app\n      results.forEach((fileData: Uint8Array, index: number) => {\n        const originalFile = selectedFiles[index]\n        const watermarkedFileName = generateWatermarkedFileName(originalFile.name)\n        const watermarkedFile = new File([fileData], watermarkedFileName, { type: 'application/pdf' })\n        addFile(watermarkedFile)\n      })\n      \n      updateJob(jobId, {\n        status: 'completed',\n        progress: 100,\n        result: {\n          processedFiles: results.length,\n          watermarkType: watermarkConfig.type\n        }\n      })\n      \n      setSelectedFiles([])\n      \n    } catch (error) {\n      console.error('Watermarking failed:', error)\n      updateJob(jobId, {\n        status: 'failed',\n        error: error instanceof Error ? error.message : 'Unknown error'\n      })\n    } finally {\n      setIsProcessing(false)\n    }\n  }\n\n  const addToBatch = () => {\n    if (selectedFiles.length === 0) return\n\n    globalBatchProcessor.addOperation({\n      type: 'watermark',\n      files: selectedFiles,\n      options: { watermark: watermarkConfig },\n      priority: 3,\n      onComplete: (results) => {\n        results.forEach((fileData: Uint8Array, index: number) => {\n          const originalFile = selectedFiles[index]\n          const watermarkedFileName = generateWatermarkedFileName(originalFile.name)\n          const watermarkedFile = new File([fileData], watermarkedFileName, { type: 'application/pdf' })\n          addFile(watermarkedFile)\n        })\n      }\n    })\n\n    setSelectedFiles([])\n  }\n\n  const generateWatermarkedFileName = (originalName: string) => {\n    const baseName = originalName.replace('.pdf', '')\n    const watermarkType = watermarkConfig.type === 'text' ? 'text' : 'image'\n    return `${baseName}_watermarked_${watermarkType}.pdf`\n  }\n\n  const formatFileSize = (bytes: number): string => {\n    if (bytes === 0) return '0 B'\n    const k = 1024\n    const sizes = ['B', 'KB', 'MB', 'GB']\n    const i = Math.floor(Math.log(bytes) / Math.log(k))\n    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]\n  }\n\n  return (\n    <div className=\"p-6\">\n      <div className=\"flex items-center justify-between mb-6\">\n        <h2 className=\"text-2xl font-bold text-gray-900 dark:text-gray-100\">Advanced Watermarking</h2>\n        <div className=\"flex items-center gap-3\">\n          {selectedFiles.length > 0 && (\n            <button\n              onClick={generatePreview}\n              className=\"flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors\"\n            >\n              <Eye className=\"w-4 h-4\" />\n              Preview\n            </button>\n          )}\n          {selectedFiles.length > 0 && (\n            <button\n              onClick={addToBatch}\n              className=\"flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors\"\n            >\n              <Zap className=\"w-4 h-4\" />\n              Add to Batch\n            </button>\n          )}\n        </div>\n      </div>\n\n      {/* File Upload */}\n      <div\n        onDrop={handleDrop}\n        onDragOver={handleDragOver}\n        onDragLeave={handleDragLeave}\n        className={`mb-6 border-2 border-dashed rounded-lg p-8 text-center transition-colors ${\n          isDragOver\n            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900'\n            : 'border-gray-300 dark:border-gray-600'\n        }`}\n      >\n        <Upload className=\"w-12 h-12 mx-auto mb-4 text-gray-400\" />\n        <h3 className=\"text-lg font-medium mb-2 text-gray-900 dark:text-gray-100\">\n          Add PDF files to watermark\n        </h3>\n        <p className=\"text-gray-500 dark:text-gray-400 mb-4\">\n          Drag and drop PDF files here, or click to browse\n        </p>\n        <button\n          onClick={() => fileInputRef.current?.click()}\n          className=\"bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors\"\n        >\n          Select Files\n        </button>\n        <input\n          ref={fileInputRef}\n          type=\"file\"\n          multiple\n          accept=\".pdf\"\n          onChange={handleFileInput}\n          className=\"hidden\"\n        />\n      </div>\n\n      {/* Selected Files */}\n      {selectedFiles.length > 0 && (\n        <div className=\"mb-6\">\n          <h3 className=\"text-lg font-medium mb-3 text-gray-900 dark:text-gray-100\">\n            Selected Files ({selectedFiles.length})\n          </h3>\n          <div className=\"space-y-2 max-h-32 overflow-y-auto\">\n            {selectedFiles.map((file, index) => (\n              <div\n                key={index}\n                className=\"flex items-center justify-between p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded\"\n              >\n                <div>\n                  <span className=\"font-medium text-gray-900 dark:text-gray-100\">{file.name}</span>\n                  <span className=\"text-sm text-gray-500 dark:text-gray-400 ml-2\">\n                    {formatFileSize(file.size)}\n                  </span>\n                </div>\n                <button\n                  onClick={() => removeFile(index)}\n                  className=\"text-red-500 hover:text-red-700\"\n                >\n                  ×\n                </button>\n              </div>\n            ))}\n          </div>\n        </div>\n      )}\n\n      {/* Watermark Configuration */}\n      <div className=\"grid grid-cols-1 lg:grid-cols-2 gap-6\">\n        {/* Left Column - Configuration */}\n        <div>\n          {/* Tab Navigation */}\n          <div className=\"flex space-x-1 mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg p-1\">\n            <button\n              onClick={() => setActiveTab('text')}\n              className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${\n                activeTab === 'text'\n                  ? 'bg-white dark:bg-gray-800 text-blue-600 shadow'\n                  : 'text-gray-600 dark:text-gray-400'\n              }`}\n            >\n              <Type className=\"w-4 h-4\" />\n              Text\n            </button>\n            <button\n              onClick={() => setActiveTab('image')}\n              className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${\n                activeTab === 'image'\n                  ? 'bg-white dark:bg-gray-800 text-blue-600 shadow'\n                  : 'text-gray-600 dark:text-gray-400'\n              }`}\n            >\n              <Image className=\"w-4 h-4\" />\n              Image\n            </button>\n            <button\n              onClick={() => setActiveTab('templates')}\n              className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${\n                activeTab === 'templates'\n                  ? 'bg-white dark:bg-gray-800 text-blue-600 shadow'\n                  : 'text-gray-600 dark:text-gray-400'\n              }`}\n            >\n              <Palette className=\"w-4 h-4\" />\n              Templates\n            </button>\n          </div>\n\n          {/* Text Watermark Options */}\n          {activeTab === 'text' && (\n            <div className=\"space-y-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Text Content\n                </label>\n                <input\n                  type=\"text\"\n                  value={watermarkConfig.content || ''}\n                  onChange={(e) => setWatermarkConfig(prev => ({\n                    ...prev,\n                    content: e.target.value,\n                    type: 'text'\n                  }))}\n                  placeholder=\"Enter watermark text\"\n                  className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                />\n              </div>\n\n              <div className=\"grid grid-cols-2 gap-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Font Size\n                  </label>\n                  <input\n                    type=\"number\"\n                    value={watermarkConfig.text?.fontSize || 24}\n                    onChange={(e) => setWatermarkConfig(prev => ({\n                      ...prev,\n                      text: { ...prev.text!, fontSize: parseInt(e.target.value) }\n                    }))}\n                    min=\"8\"\n                    max=\"200\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Font Family\n                  </label>\n                  <select\n                    value={watermarkConfig.text?.fontFamily || 'Arial'}\n                    onChange={(e) => setWatermarkConfig(prev => ({\n                      ...prev,\n                      text: { ...prev.text!, fontFamily: e.target.value }\n                    }))}\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  >\n                    {FONT_FAMILIES.map(font => (\n                      <option key={font} value={font}>{font}</option>\n                    ))}\n                  </select>\n                </div>\n              </div>\n\n              <div className=\"grid grid-cols-3 gap-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Color\n                  </label>\n                  <input\n                    type=\"color\"\n                    value={watermarkConfig.text?.color || '#000000'}\n                    onChange={(e) => setWatermarkConfig(prev => ({\n                      ...prev,\n                      text: { ...prev.text!, color: e.target.value }\n                    }))}\n                    className=\"w-full h-10 border border-gray-300 dark:border-gray-600 rounded\"\n                  />\n                </div>\n                <div className=\"flex items-center gap-4 pt-6\">\n                  <label className=\"flex items-center gap-2\">\n                    <input\n                      type=\"checkbox\"\n                      checked={watermarkConfig.text?.bold || false}\n                      onChange={(e) => setWatermarkConfig(prev => ({\n                        ...prev,\n                        text: { ...prev.text!, bold: e.target.checked }\n                      }))}\n                      className=\"rounded\"\n                    />\n                    <span className=\"text-sm text-gray-700 dark:text-gray-300\">Bold</span>\n                  </label>\n                </div>\n                <div className=\"flex items-center gap-4 pt-6\">\n                  <label className=\"flex items-center gap-2\">\n                    <input\n                      type=\"checkbox\"\n                      checked={watermarkConfig.text?.italic || false}\n                      onChange={(e) => setWatermarkConfig(prev => ({\n                        ...prev,\n                        text: { ...prev.text!, italic: e.target.checked }\n                      }))}\n                      className=\"rounded\"\n                    />\n                    <span className=\"text-sm text-gray-700 dark:text-gray-300\">Italic</span>\n                  </label>\n                </div>\n              </div>\n            </div>\n          )}\n\n          {/* Image Watermark Options */}\n          {activeTab === 'image' && (\n            <div className=\"space-y-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Select Image\n                </label>\n                <button\n                  onClick={() => imageInputRef.current?.click()}\n                  className=\"w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-gray-400 transition-colors\"\n                >\n                  {watermarkConfig.imageData ? 'Change Image' : 'Choose Image'}\n                </button>\n                <input\n                  ref={imageInputRef}\n                  type=\"file\"\n                  accept=\"image/*\"\n                  onChange={handleImageSelect}\n                  className=\"hidden\"\n                />\n              </div>\n\n              {watermarkConfig.imageData && (\n                <>\n                  <div className=\"grid grid-cols-2 gap-4\">\n                    <div>\n                      <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                        Width (px)\n                      </label>\n                      <input\n                        type=\"number\"\n                        value={watermarkConfig.image?.width || 100}\n                        onChange={(e) => setWatermarkConfig(prev => ({\n                          ...prev,\n                          image: { ...prev.image!, width: parseInt(e.target.value) }\n                        }))}\n                        min=\"10\"\n                        max=\"1000\"\n                        className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                      />\n                    </div>\n                    <div>\n                      <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                        Height (px)\n                      </label>\n                      <input\n                        type=\"number\"\n                        value={watermarkConfig.image?.height || 100}\n                        onChange={(e) => setWatermarkConfig(prev => ({\n                          ...prev,\n                          image: { ...prev.image!, height: parseInt(e.target.value) }\n                        }))}\n                        min=\"10\"\n                        max=\"1000\"\n                        className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                      />\n                    </div>\n                  </div>\n\n                  <label className=\"flex items-center gap-2\">\n                    <input\n                      type=\"checkbox\"\n                      checked={watermarkConfig.image?.maintainAspectRatio !== false}\n                      onChange={(e) => setWatermarkConfig(prev => ({\n                        ...prev,\n                        image: { ...prev.image!, maintainAspectRatio: e.target.checked }\n                      }))}\n                      className=\"rounded\"\n                    />\n                    <span className=\"text-sm text-gray-700 dark:text-gray-300\">Maintain aspect ratio</span>\n                  </label>\n                </>\n              )}\n            </div>\n          )}\n\n          {/* Template Options */}\n          {activeTab === 'templates' && (\n            <div className=\"space-y-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n              <div className=\"flex items-center justify-between\">\n                <h4 className=\"font-medium text-gray-900 dark:text-gray-100\">Built-in Templates</h4>\n                <button\n                  onClick={saveAsTemplate}\n                  className=\"text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors\"\n                >\n                  Save Current\n                </button>\n              </div>\n              \n              <div className=\"space-y-2\">\n                {DEFAULT_TEMPLATES.map((template) => (\n                  <button\n                    key={template.id}\n                    onClick={() => applyTemplate(template)}\n                    className=\"w-full text-left p-3 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors\"\n                  >\n                    <div className=\"font-medium text-gray-900 dark:text-gray-100\">{template.name}</div>\n                    <div className=\"text-sm text-gray-500 dark:text-gray-400\">\n                      {template.type === 'text' ? `Text: \"${template.config.content}\"` : 'Image watermark'}\n                    </div>\n                  </button>\n                ))}\n              </div>\n\n              {customTemplates.length > 0 && (\n                <>\n                  <h4 className=\"font-medium text-gray-900 dark:text-gray-100 mt-6\">Custom Templates</h4>\n                  <div className=\"space-y-2\">\n                    {customTemplates.map((template) => (\n                      <button\n                        key={template.id}\n                        onClick={() => applyTemplate(template)}\n                        className=\"w-full text-left p-3 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors\"\n                      >\n                        <div className=\"font-medium text-gray-900 dark:text-gray-100\">{template.name}</div>\n                        <div className=\"text-sm text-gray-500 dark:text-gray-400\">\n                          {template.type === 'text' ? `Text: \"${template.config.content}\"` : 'Image watermark'}\n                        </div>\n                      </button>\n                    ))}\n                  </div>\n                </>\n              )}\n            </div>\n          )}\n\n          {/* Position & Style */}\n          <div className=\"mt-6 space-y-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n            <h4 className=\"font-medium text-gray-900 dark:text-gray-100\">Position & Style</h4>\n            \n            <div>\n              <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                Position Preset\n              </label>\n              <select\n                value={watermarkConfig.position.preset || 'center'}\n                onChange={(e) => updatePosition(e.target.value)}\n                className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n              >\n                {POSITION_PRESETS.map(preset => (\n                  <option key={preset.id} value={preset.id}>{preset.name}</option>\n                ))}\n              </select>\n            </div>\n\n            {watermarkConfig.position.preset === 'custom' && (\n              <div className=\"grid grid-cols-2 gap-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    X Position (%)\n                  </label>\n                  <input\n                    type=\"number\"\n                    value={watermarkConfig.position.x}\n                    onChange={(e) => setWatermarkConfig(prev => ({\n                      ...prev,\n                      position: { ...prev.position, x: parseFloat(e.target.value) }\n                    }))}\n                    min=\"0\"\n                    max=\"100\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Y Position (%)\n                  </label>\n                  <input\n                    type=\"number\"\n                    value={watermarkConfig.position.y}\n                    onChange={(e) => setWatermarkConfig(prev => ({\n                      ...prev,\n                      position: { ...prev.position, y: parseFloat(e.target.value) }\n                    }))}\n                    min=\"0\"\n                    max=\"100\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n              </div>\n            )}\n\n            <div className=\"grid grid-cols-3 gap-4\">\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Opacity: {Math.round(watermarkConfig.style.opacity * 100)}%\n                </label>\n                <input\n                  type=\"range\"\n                  min=\"0.1\"\n                  max=\"1\"\n                  step=\"0.1\"\n                  value={watermarkConfig.style.opacity}\n                  onChange={(e) => setWatermarkConfig(prev => ({\n                    ...prev,\n                    style: { ...prev.style, opacity: parseFloat(e.target.value) }\n                  }))}\n                  className=\"w-full\"\n                />\n              </div>\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Rotation: {watermarkConfig.style.rotation}°\n                </label>\n                <input\n                  type=\"range\"\n                  min=\"-180\"\n                  max=\"180\"\n                  step=\"15\"\n                  value={watermarkConfig.style.rotation}\n                  onChange={(e) => setWatermarkConfig(prev => ({\n                    ...prev,\n                    style: { ...prev.style, rotation: parseInt(e.target.value) }\n                  }))}\n                  className=\"w-full\"\n                />\n              </div>\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Scale: {Math.round(watermarkConfig.style.scale * 100)}%\n                </label>\n                <input\n                  type=\"range\"\n                  min=\"0.5\"\n                  max=\"3\"\n                  step=\"0.1\"\n                  value={watermarkConfig.style.scale}\n                  onChange={(e) => setWatermarkConfig(prev => ({\n                    ...prev,\n                    style: { ...prev.style, scale: parseFloat(e.target.value) }\n                  }))}\n                  className=\"w-full\"\n                />\n              </div>\n            </div>\n          </div>\n\n          {/* Advanced Options */}\n          <div className=\"mt-6 space-y-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n            <h4 className=\"font-medium text-gray-900 dark:text-gray-100\">Advanced Options</h4>\n            \n            <div className=\"grid grid-cols-2 gap-4\">\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Blend Mode\n                </label>\n                <select\n                  value={watermarkConfig.advanced.blendMode}\n                  onChange={(e) => setWatermarkConfig(prev => ({\n                    ...prev,\n                    advanced: { ...prev.advanced, blendMode: e.target.value }\n                  }))}\n                  className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                >\n                  {BLEND_MODES.map(mode => (\n                    <option key={mode.id} value={mode.id}>{mode.name}</option>\n                  ))}\n                </select>\n              </div>\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Layer\n                </label>\n                <select\n                  value={watermarkConfig.advanced.layer}\n                  onChange={(e) => setWatermarkConfig(prev => ({\n                    ...prev,\n                    advanced: { ...prev.advanced, layer: e.target.value as 'behind' | 'front' }\n                  }))}\n                  className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                >\n                  <option value=\"behind\">Behind content</option>\n                  <option value=\"front\">In front of content</option>\n                </select>\n              </div>\n            </div>\n\n            <div>\n              <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                Page Range\n              </label>\n              <select\n                value={watermarkConfig.advanced.pageRange}\n                onChange={(e) => setWatermarkConfig(prev => ({\n                  ...prev,\n                  advanced: { ...prev.advanced, pageRange: e.target.value as any }\n                }))}\n                className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n              >\n                <option value=\"all\">All pages</option>\n                <option value=\"odd\">Odd pages only</option>\n                <option value=\"even\">Even pages only</option>\n                <option value=\"first\">First page only</option>\n                <option value=\"last\">Last page only</option>\n                <option value=\"custom\">Custom range</option>\n              </select>\n            </div>\n\n            {watermarkConfig.advanced.pageRange === 'custom' && (\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Custom Pages (e.g., \"1-5, 10, 15-20\")\n                </label>\n                <input\n                  type=\"text\"\n                  value={watermarkConfig.advanced.customPages || ''}\n                  onChange={(e) => setWatermarkConfig(prev => ({\n                    ...prev,\n                    advanced: { ...prev.advanced, customPages: e.target.value }\n                  }))}\n                  placeholder=\"1-5, 10, 15-20\"\n                  className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                />\n              </div>\n            )}\n          </div>\n        </div>\n\n        {/* Right Column - Preview */}\n        <div>\n          {showPreview && previewImage && (\n            <div className=\"p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n              <h4 className=\"font-medium text-gray-900 dark:text-gray-100 mb-4\">Live Preview</h4>\n              <div className=\"relative\">\n                <img\n                  src={previewImage}\n                  alt=\"PDF Preview\"\n                  className=\"w-full rounded border border-gray-200 dark:border-gray-600\"\n                />\n                {/* Watermark overlay simulation */}\n                <div\n                  className=\"absolute pointer-events-none\"\n                  style={{\n                    left: `${watermarkConfig.position.x}%`,\n                    top: `${watermarkConfig.position.y}%`,\n                    transform: `translate(-50%, -50%) rotate(${watermarkConfig.style.rotation}deg) scale(${watermarkConfig.style.scale})`,\n                    opacity: watermarkConfig.style.opacity\n                  }}\n                >\n                  {watermarkConfig.type === 'text' && watermarkConfig.content && (\n                    <span\n                      style={{\n                        fontFamily: watermarkConfig.text?.fontFamily,\n                        fontSize: `${(watermarkConfig.text?.fontSize || 24) * 0.5}px`,\n                        color: watermarkConfig.text?.color,\n                        fontWeight: watermarkConfig.text?.bold ? 'bold' : 'normal',\n                        fontStyle: watermarkConfig.text?.italic ? 'italic' : 'normal'\n                      }}\n                    >\n                      {watermarkConfig.content}\n                    </span>\n                  )}\n                  {watermarkConfig.type === 'image' && watermarkConfig.imageData && (\n                    <img\n                      src={watermarkConfig.imageData}\n                      alt=\"Watermark\"\n                      style={{\n                        width: `${(watermarkConfig.image?.width || 100) * 0.5}px`,\n                        height: `${(watermarkConfig.image?.height || 100) * 0.5}px`\n                      }}\n                    />\n                  )}\n                </div>\n              </div>\n            </div>\n          )}\n\n          {!showPreview && (\n            <div className=\"p-8 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-center\">\n              <Eye className=\"w-12 h-12 mx-auto mb-4 text-gray-400\" />\n              <p className=\"text-gray-500 dark:text-gray-400\">\n                Add files and click \"Preview\" to see watermark placement\n              </p>\n            </div>\n          )}\n        </div>\n      </div>\n\n      {/* Action Buttons */}\n      {selectedFiles.length > 0 && (\n        <div className=\"mt-6 grid grid-cols-1 md:grid-cols-2 gap-4\">\n          <button\n            onClick={handleWatermark}\n            disabled={isProcessing}\n            className=\"bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2\"\n          >\n            {isProcessing ? (\n              <RefreshCw className=\"w-5 h-5 animate-spin\" />\n            ) : (\n              <Droplets className=\"w-5 h-5\" />\n            )}\n            {isProcessing ? 'Adding Watermarks...' : 'Apply Watermark'}\n          </button>\n          \n          <button\n            onClick={addToBatch}\n            disabled={isProcessing}\n            className=\"bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2\"\n          >\n            <Zap className=\"w-5 h-5\" />\n            Add to Batch Queue\n          </button>\n        </div>\n      )}\n\n      {selectedFiles.length === 0 && (\n        <div className=\"p-4 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded-lg\">\n          <div className=\"flex items-center gap-2\">\n            <AlertCircle className=\"w-5 h-5 text-yellow-600\" />\n            <span className=\"text-yellow-800 dark:text-yellow-200\">\n              Add PDF files to apply watermarks.\n            </span>\n          </div>\n        </div>\n      )}\n    </div>\n  )\n}\n\nexport default AdvancedWatermarkTool"
+      const results = []
+      
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i]
+        const arrayBuffer = await file.arrayBuffer()
+        const uint8Array = new Uint8Array(arrayBuffer)
+
+        updateJob(jobId, { progress: (i / selectedFiles.length) * 80 })
+
+        // Prepare watermark options for the worker
+        const watermarkOptions = {
+          fontSize: watermarkConfig.text?.fontSize || 24,
+          color: {
+            r: parseInt(watermarkConfig.text?.color.slice(1, 3) || '88', 16) / 255,
+            g: parseInt(watermarkConfig.text?.color.slice(3, 5) || '88', 16) / 255,
+            b: parseInt(watermarkConfig.text?.color.slice(5, 7) || '88', 16) / 255
+          },
+          opacity: watermarkConfig.style.opacity,
+          rotation: watermarkConfig.style.rotation,
+          position: watermarkConfig.position.preset || 'center'
+        }
+
+        const result = await workerManager.addWatermark(
+          uint8Array, 
+          watermarkConfig.content || 'WATERMARK', 
+          watermarkOptions
+        )
+        
+        // Create new file with watermark
+        const watermarkedFileName = file.name.replace(/\.pdf$/i, '_watermarked.pdf')
+        const pdfFile = {
+          id: `watermark-${Date.now()}-${i}`,
+          name: watermarkedFileName,
+          size: result.byteLength,
+          type: 'application/pdf',
+          lastModified: Date.now(),
+          file: new File([new Uint8Array(result)], watermarkedFileName, { type: 'application/pdf' }),
+          pageCount: 1,
+          data: result
+        } as any
+        
+        addFile(pdfFile)
+        results.push(result)
+      }
+
+      updateJob(jobId, {
+        status: 'completed',
+        progress: 100,
+        endTime: Date.now()
+      })
+
+      console.log(`Successfully watermarked ${selectedFiles.length} file(s)`)
+      
+    } catch (error) {
+      console.error('Error applying watermark:', error)
+      updateJob(jobId, {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        endTime: Date.now()
+      })
+      console.error('Failed to apply watermark')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+              <Droplets className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Advanced Watermark Tool</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Professional watermarking with templates and advanced controls</p>
+            </div>
+          </div>
+          {selectedFiles.length > 0 && (
+            <button
+              onClick={handleWatermark}
+              disabled={isProcessing}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isProcessing ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {isProcessing ? 'Processing...' : 'Apply Watermark'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* File Upload Area */}
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div
+              className={`relative border-2 border-dashed rounded-lg p-6 transition-colors ${
+                isDragOver
+                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="mt-4">
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <span className="text-base font-medium text-blue-600 hover:text-blue-500">
+                      Upload PDF files
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-400"> or drag and drop</span>
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    id="file-upload"
+                    name="file-upload"
+                    type="file"
+                    className="sr-only"
+                    multiple
+                    accept=".pdf"
+                    onChange={handleFileInputChange}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">PDF files up to 10MB each</p>
+              </div>
+            </div>
+
+            {/* Selected Files */}
+            {selectedFiles.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Selected Files ({selectedFiles.length})
+                </h3>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                      <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">
+                        {file.name}
+                      </span>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="ml-2 text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Configuration Tabs */}
+          <div className="flex-1 flex flex-col">
+            <div className="flex border-b border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setActiveTab('text')}
+                className={`px-4 py-2 text-sm font-medium ${
+                  activeTab === 'text'
+                    ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <Type className="w-4 h-4 inline mr-2" />
+                Text Watermark
+              </button>
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`px-4 py-2 text-sm font-medium ${
+                  activeTab === 'templates'
+                    ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <Layers className="w-4 h-4 inline mr-2" />
+                Templates
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+              {activeTab === 'text' && (
+                <div className="space-y-6">
+                  {/* Text Content */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Watermark Text
+                    </label>
+                    <input
+                      type="text"
+                      value={watermarkConfig.content || ''}
+                      onChange={(e) => setWatermarkConfig(prev => ({ ...prev, content: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder="Enter watermark text"
+                    />
+                  </div>
+
+                  {/* Font Settings */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Font Family
+                      </label>
+                      <select
+                        value={watermarkConfig.text?.fontFamily || 'Arial'}
+                        onChange={(e) => setWatermarkConfig(prev => ({
+                          ...prev,
+                          text: { ...prev.text!, fontFamily: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        {FONT_FAMILIES.map(font => (
+                          <option key={font} value={font}>{font}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Font Size
+                      </label>
+                      <input
+                        type="number"
+                        min="8"
+                        max="72"
+                        value={watermarkConfig.text?.fontSize || 24}
+                        onChange={(e) => setWatermarkConfig(prev => ({
+                          ...prev,
+                          text: { ...prev.text!, fontSize: parseInt(e.target.value) || 24 }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Color and Style */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Color
+                      </label>
+                      <input
+                        type="color"
+                        value={watermarkConfig.text?.color || '#888888'}
+                        onChange={(e) => setWatermarkConfig(prev => ({
+                          ...prev,
+                          text: { ...prev.text!, color: e.target.value }
+                        }))}
+                        className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-md"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Opacity
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={watermarkConfig.style.opacity}
+                        onChange={(e) => setWatermarkConfig(prev => ({
+                          ...prev,
+                          style: { ...prev.style, opacity: parseFloat(e.target.value) }
+                        }))}
+                        className="w-full"
+                      />
+                      <span className="text-sm text-gray-500">{Math.round(watermarkConfig.style.opacity * 100)}%</span>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Rotation
+                      </label>
+                      <input
+                        type="range"
+                        min="-90"
+                        max="90"
+                        value={watermarkConfig.style.rotation}
+                        onChange={(e) => setWatermarkConfig(prev => ({
+                          ...prev,
+                          style: { ...prev.style, rotation: parseInt(e.target.value) }
+                        }))}
+                        className="w-full"
+                      />
+                      <span className="text-sm text-gray-500">{watermarkConfig.style.rotation}°</span>
+                    </div>
+                  </div>
+
+                  {/* Position Presets */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Position
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {POSITION_PRESETS.map(preset => (
+                        <button
+                          key={preset.id}
+                          onClick={() => updatePosition(preset.id)}
+                          className={`p-2 text-sm border rounded ${
+                            watermarkConfig.position.preset === preset.id
+                              ? 'bg-blue-100 border-blue-500 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                              : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {preset.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Advanced Settings */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Page Range
+                    </label>
+                    <select
+                      value={watermarkConfig.advanced.pageRange}
+                      onChange={(e) => setWatermarkConfig(prev => ({
+                        ...prev,
+                        advanced: { ...prev.advanced, pageRange: e.target.value as any }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="all">All Pages</option>
+                      <option value="odd">Odd Pages Only</option>
+                      <option value="even">Even Pages Only</option>
+                      <option value="first">First Page Only</option>
+                      <option value="last">Last Page Only</option>
+                    </select>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={saveAsTemplate}
+                      className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Save as Template
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'templates' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Default Templates</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {DEFAULT_TEMPLATES.map(template => (
+                        <div key={template.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{template.name}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{template.config.content}</p>
+                          <button
+                            onClick={() => applyTemplate(template)}
+                            className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                          >
+                            Use Template
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {customTemplates.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Custom Templates</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {customTemplates.map(template => (
+                          <div key={template.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{template.name}</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{template.config.content}</p>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => applyTemplate(template)}
+                                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                              >
+                                Use
+                              </button>
+                              <button
+                                onClick={() => setCustomTemplates(prev => prev.filter(t => t.id !== template.id))}
+                                className="py-2 px-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Preview Panel */}
+        {preview && (
+          <div className="w-80 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Preview</h3>
+            <div className="relative bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+              <img
+                src={preview}
+                alt="PDF Preview"
+                className="w-full h-auto rounded-lg"
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span
+                  className="text-gray-400"
+                  style={{
+                    fontSize: `${Math.max(8, (watermarkConfig.text?.fontSize || 24) / 4)}px`,
+                    opacity: watermarkConfig.style.opacity,
+                    transform: `rotate(${watermarkConfig.style.rotation}deg)`,
+                    fontWeight: watermarkConfig.text?.bold ? 'bold' : 'normal',
+                    fontStyle: watermarkConfig.text?.italic ? 'italic' : 'normal',
+                    color: watermarkConfig.text?.color || '#888888'
+                  }}
+                >
+                  {watermarkConfig.content || 'WATERMARK'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default AdvancedWatermarkTool

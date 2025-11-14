@@ -2,7 +2,7 @@ import { workerManager } from './workerManager'
 
 export interface BatchOperation {
   id: string
-  type: 'merge' | 'split' | 'watermark' | 'rotate' | 'compress' | 'extract' | 'reorder'
+  type: 'merge' | 'split' | 'watermark' | 'rotate' | 'compress' | 'extract' | 'reorder' | 'metadata' | 'security' | 'pageNumbers' | 'enhancedMerge' | 'smartSplit'
   files: File[]
   options: Record<string, any>
   priority: number

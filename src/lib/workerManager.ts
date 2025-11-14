@@ -45,6 +45,26 @@ class WorkerManager {
     return this.imageWorker
   }
 
+  async submitJob(jobConfig: any): Promise<any> {
+    // This is a simplified implementation for compatibility
+    const { type } = jobConfig
+    
+    switch (type) {
+      case 'merge':
+      case 'enhanced-merge':
+        const pdfWorker = await this.getPDFWorker()
+        return await pdfWorker.mergePDFs(jobConfig.files)
+      
+      case 'split':
+      case 'smart-split':
+        const splitWorker = await this.getPDFWorker()
+        return await splitWorker.splitPDF(jobConfig.file, jobConfig.options)
+        
+      default:
+        throw new Error(`Unsupported job type: ${type}`)
+    }
+  }
+
   async terminateAll(): Promise<void> {
     const promises: Promise<void>[] = []
 

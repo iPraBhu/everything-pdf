@@ -1,1 +1,914 @@
-import React, { useState, useRef } from 'react'\nimport { Upload, Hash, RefreshCw, AlertCircle, Eye, Zap, AlignCenter, AlignLeft, AlignRight } from 'lucide-react'\nimport { useAppStore } from '../../state/store'\nimport { useJobsStore } from '../../state/jobs'\nimport { workerManager } from '../../lib/workerManager'\nimport { globalBatchProcessor } from '../../lib/batchProcessor'\n\ninterface PageNumberConfig {\n  format: {\n    style: 'numeric' | 'roman-upper' | 'roman-lower' | 'alpha-upper' | 'alpha-lower' | 'custom'\n    pattern: string // e.g., \"Page {n} of {total}\", \"{n}-{total}\"\n    startNumber: number\n    prefix: string\n    suffix: string\n  }\n  position: {\n    location: 'header' | 'footer'\n    alignment: 'left' | 'center' | 'right'\n    marginX: number // horizontal margin from edge\n    marginY: number // vertical margin from top/bottom\n    customX?: number // custom X position (percentage)\n    customY?: number // custom Y position (percentage)\n  }\n  typography: {\n    fontFamily: string\n    fontSize: number\n    color: string\n    bold: boolean\n    italic: boolean\n    underline: boolean\n  }\n  advanced: {\n    pageRange: 'all' | 'from-page' | 'custom'\n    startPage: number\n    excludePages: string // e.g., \"1, 5-10\"\n    skipBlankPages: boolean\n    differentFirstPage: boolean\n    differentOddEven: boolean\n    oddPageConfig?: Partial<PageNumberConfig>\n    evenPageConfig?: Partial<PageNumberConfig>\n  }\n  appearance: {\n    opacity: number\n    rotation: number\n    backgroundColor?: string\n    borderColor?: string\n    borderWidth: number\n    padding: number\n    borderRadius: number\n  }\n}\n\ninterface NumberingTemplate {\n  id: string\n  name: string\n  description: string\n  config: PageNumberConfig\n}\n\nconst DEFAULT_TEMPLATES: NumberingTemplate[] = [\n  {\n    id: 'simple-bottom-center',\n    name: 'Simple Bottom Center',\n    description: 'Page numbers at bottom center (1, 2, 3...)',\n    config: {\n      format: {\n        style: 'numeric',\n        pattern: '{n}',\n        startNumber: 1,\n        prefix: '',\n        suffix: ''\n      },\n      position: {\n        location: 'footer',\n        alignment: 'center',\n        marginX: 0,\n        marginY: 20\n      },\n      typography: {\n        fontFamily: 'Arial',\n        fontSize: 12,\n        color: '#000000',\n        bold: false,\n        italic: false,\n        underline: false\n      },\n      advanced: {\n        pageRange: 'all',\n        startPage: 1,\n        excludePages: '',\n        skipBlankPages: false,\n        differentFirstPage: false,\n        differentOddEven: false\n      },\n      appearance: {\n        opacity: 1,\n        rotation: 0,\n        borderWidth: 0,\n        padding: 4,\n        borderRadius: 0\n      }\n    }\n  },\n  {\n    id: 'page-of-total',\n    name: 'Page X of Y',\n    description: 'Page X of Y format at bottom right',\n    config: {\n      format: {\n        style: 'numeric',\n        pattern: 'Page {n} of {total}',\n        startNumber: 1,\n        prefix: '',\n        suffix: ''\n      },\n      position: {\n        location: 'footer',\n        alignment: 'right',\n        marginX: 20,\n        marginY: 20\n      },\n      typography: {\n        fontFamily: 'Times New Roman',\n        fontSize: 10,\n        color: '#666666',\n        bold: false,\n        italic: true,\n        underline: false\n      },\n      advanced: {\n        pageRange: 'from-page',\n        startPage: 2,\n        excludePages: '1',\n        skipBlankPages: false,\n        differentFirstPage: true,\n        differentOddEven: false\n      },\n      appearance: {\n        opacity: 1,\n        rotation: 0,\n        borderWidth: 0,\n        padding: 4,\n        borderRadius: 0\n      }\n    }\n  },\n  {\n    id: 'roman-numerals',\n    name: 'Roman Numerals',\n    description: 'Roman numerals at top center (I, II, III...)',\n    config: {\n      format: {\n        style: 'roman-lower',\n        pattern: '{n}',\n        startNumber: 1,\n        prefix: '',\n        suffix: ''\n      },\n      position: {\n        location: 'header',\n        alignment: 'center',\n        marginX: 0,\n        marginY: 20\n      },\n      typography: {\n        fontFamily: 'Georgia',\n        fontSize: 14,\n        color: '#000000',\n        bold: true,\n        italic: false,\n        underline: false\n      },\n      advanced: {\n        pageRange: 'all',\n        startPage: 1,\n        excludePages: '',\n        skipBlankPages: false,\n        differentFirstPage: false,\n        differentOddEven: false\n      },\n      appearance: {\n        opacity: 0.8,\n        rotation: 0,\n        borderWidth: 0,\n        padding: 6,\n        borderRadius: 0\n      }\n    }\n  },\n  {\n    id: 'professional-footer',\n    name: 'Professional Footer',\n    description: 'Styled page numbers with border',\n    config: {\n      format: {\n        style: 'numeric',\n        pattern: '{n}',\n        startNumber: 1,\n        prefix: '',\n        suffix: ''\n      },\n      position: {\n        location: 'footer',\n        alignment: 'center',\n        marginX: 0,\n        marginY: 20\n      },\n      typography: {\n        fontFamily: 'Helvetica',\n        fontSize: 11,\n        color: '#333333',\n        bold: false,\n        italic: false,\n        underline: false\n      },\n      advanced: {\n        pageRange: 'all',\n        startPage: 1,\n        excludePages: '',\n        skipBlankPages: false,\n        differentFirstPage: false,\n        differentOddEven: false\n      },\n      appearance: {\n        opacity: 1,\n        rotation: 0,\n        backgroundColor: '#f8f9fa',\n        borderColor: '#dee2e6',\n        borderWidth: 1,\n        padding: 8,\n        borderRadius: 4\n      }\n    }\n  }\n]\n\nconst FONT_FAMILIES = [\n  'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana', 'Georgia', 'Tahoma', 'Trebuchet MS'\n]\n\nconst ProfessionalPageNumbersTool: React.FC = () => {\n  const [selectedFiles, setSelectedFiles] = useState<File[]>([])\n  const [isDragOver, setIsDragOver] = useState(false)\n  const [isProcessing, setIsProcessing] = useState(false)\n  const [pageNumberConfig, setPageNumberConfig] = useState<PageNumberConfig>(DEFAULT_TEMPLATES[0].config)\n  const [customTemplates, setCustomTemplates] = useState<NumberingTemplate[]>([])\n  const [activeTemplate, setActiveTemplate] = useState<string>(DEFAULT_TEMPLATES[0].id)\n  const [previewData, setPreviewData] = useState<any>(null)\n  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)\n  \n  const fileInputRef = useRef<HTMLInputElement>(null)\n  const { addFile } = useAppStore()\n  const { addJob, updateJob } = useJobsStore()\n\n  const handleFileSelect = async (files: FileList) => {\n    const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf')\n    setSelectedFiles(prev => [...prev, ...pdfFiles])\n\n    // Analyze first file for preview\n    if (pdfFiles.length > 0) {\n      try {\n        const file = pdfFiles[0]\n        const arrayBuffer = await file.arrayBuffer()\n        const uint8Array = new Uint8Array(arrayBuffer)\n        const { loadPDFDocument, getPDFInfo } = await import('../../lib/pdf')\n        \n        const doc = await loadPDFDocument(uint8Array)\n        const info = await getPDFInfo(doc)\n        \n        setPreviewData({\n          pageCount: info.pageCount,\n          fileName: file.name\n        })\n      } catch (error) {\n        console.error('Error analyzing PDF:', error)\n      }\n    }\n  }\n\n  const formatNumber = (num: number, style: string, total?: number): string => {\n    switch (style) {\n      case 'numeric':\n        return num.toString()\n      case 'roman-upper':\n        return toRoman(num).toUpperCase()\n      case 'roman-lower':\n        return toRoman(num).toLowerCase()\n      case 'alpha-upper':\n        return toAlpha(num).toUpperCase()\n      case 'alpha-lower':\n        return toAlpha(num).toLowerCase()\n      default:\n        return num.toString()\n    }\n  }\n\n  const toRoman = (num: number): string => {\n    const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]\n    const numerals = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I']\n    let result = ''\n    for (let i = 0; i < values.length; i++) {\n      while (num >= values[i]) {\n        result += numerals[i]\n        num -= values[i]\n      }\n    }\n    return result\n  }\n\n  const toAlpha = (num: number): string => {\n    let result = ''\n    while (num > 0) {\n      num--\n      result = String.fromCharCode(65 + (num % 26)) + result\n      num = Math.floor(num / 26)\n    }\n    return result\n  }\n\n  const generatePreviewText = (): string => {\n    const pageNum = pageNumberConfig.format.startNumber\n    const total = previewData?.pageCount || 10\n    const formattedNum = formatNumber(pageNum, pageNumberConfig.format.style, total)\n    const formattedTotal = formatNumber(total, pageNumberConfig.format.style)\n    \n    let text = pageNumberConfig.format.pattern\n      .replace('{n}', formattedNum)\n      .replace('{total}', formattedTotal)\n    \n    if (pageNumberConfig.format.prefix) {\n      text = pageNumberConfig.format.prefix + text\n    }\n    if (pageNumberConfig.format.suffix) {\n      text = text + pageNumberConfig.format.suffix\n    }\n    \n    return text\n  }\n\n  const applyTemplate = (templateId: string) => {\n    const template = [...DEFAULT_TEMPLATES, ...customTemplates].find(t => t.id === templateId)\n    if (template) {\n      setPageNumberConfig(template.config)\n      setActiveTemplate(templateId)\n    }\n  }\n\n  const saveAsTemplate = () => {\n    const templateName = prompt('Enter template name:')\n    if (templateName) {\n      const newTemplate: NumberingTemplate = {\n        id: Date.now().toString(),\n        name: templateName,\n        description: 'Custom template',\n        config: { ...pageNumberConfig }\n      }\n      setCustomTemplates(prev => [...prev, newTemplate])\n    }\n  }\n\n  const handleDrop = (e: React.DragEvent) => {\n    e.preventDefault()\n    setIsDragOver(false)\n    \n    const droppedFiles = e.dataTransfer.files\n    handleFileSelect(droppedFiles)\n  }\n\n  const handleDragOver = (e: React.DragEvent) => {\n    e.preventDefault()\n    setIsDragOver(true)\n  }\n\n  const handleDragLeave = (e: React.DragEvent) => {\n    e.preventDefault()\n    setIsDragOver(false)\n  }\n\n  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {\n    if (e.target.files) {\n      handleFileSelect(e.target.files)\n    }\n  }\n\n  const removeFile = (index: number) => {\n    setSelectedFiles(prev => prev.filter((_, i) => i !== index))\n    if (index === 0 && selectedFiles.length === 1) {\n      setPreviewData(null)\n    }\n  }\n\n  const handleAddPageNumbers = async () => {\n    if (selectedFiles.length === 0) return\n    \n    setIsProcessing(true)\n    const jobId = Date.now().toString()\n    \n    try {\n      addJob({\n        id: jobId,\n        type: 'pageNumbers',\n        status: 'processing',\n        files: selectedFiles.map(f => f.name),\n        progress: 0,\n        createdAt: new Date()\n      })\n\n      const files = await Promise.all(\n        selectedFiles.map(f => f.arrayBuffer().then(ab => new Uint8Array(ab)))\n      )\n      \n      const results = await workerManager.submitJob({\n        type: 'pageNumbers',\n        files,\n        options: {\n          config: pageNumberConfig,\n          onProgress: (progress: number) => {\n            updateJob(jobId, { progress })\n          }\n        }\n      })\n      \n      // Add numbered files to the app\n      results.forEach((fileData: Uint8Array, index: number) => {\n        const originalFile = selectedFiles[index]\n        const numberedFileName = generateNumberedFileName(originalFile.name)\n        const numberedFile = new File([fileData], numberedFileName, { type: 'application/pdf' })\n        addFile(numberedFile)\n      })\n      \n      updateJob(jobId, {\n        status: 'completed',\n        progress: 100,\n        result: {\n          processedFiles: results.length,\n          numberingStyle: pageNumberConfig.format.style\n        }\n      })\n      \n      setSelectedFiles([])\n      setPreviewData(null)\n      \n    } catch (error) {\n      console.error('Page numbering failed:', error)\n      updateJob(jobId, {\n        status: 'failed',\n        error: error instanceof Error ? error.message : 'Unknown error'\n      })\n    } finally {\n      setIsProcessing(false)\n    }\n  }\n\n  const addToBatch = () => {\n    if (selectedFiles.length === 0) return\n\n    globalBatchProcessor.addOperation({\n      type: 'pageNumbers' as any,\n      files: selectedFiles,\n      options: { config: pageNumberConfig },\n      priority: 4,\n      onComplete: (results) => {\n        results.forEach((fileData: Uint8Array, index: number) => {\n          const originalFile = selectedFiles[index]\n          const numberedFileName = generateNumberedFileName(originalFile.name)\n          const numberedFile = new File([fileData], numberedFileName, { type: 'application/pdf' })\n          addFile(numberedFile)\n        })\n      }\n    })\n\n    setSelectedFiles([])\n    setPreviewData(null)\n  }\n\n  const generateNumberedFileName = (originalName: string) => {\n    const baseName = originalName.replace('.pdf', '')\n    const style = pageNumberConfig.format.style\n    return `${baseName}_numbered_${style}.pdf`\n  }\n\n  const formatFileSize = (bytes: number): string => {\n    if (bytes === 0) return '0 B'\n    const k = 1024\n    const sizes = ['B', 'KB', 'MB', 'GB']\n    const i = Math.floor(Math.log(bytes) / Math.log(k))\n    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]\n  }\n\n  return (\n    <div className=\"p-6\">\n      <div className=\"flex items-center justify-between mb-6\">\n        <h2 className=\"text-2xl font-bold text-gray-900 dark:text-gray-100\">Professional Page Numbers</h2>\n        <div className=\"flex items-center gap-3\">\n          <button\n            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}\n            className=\"flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors\"\n          >\n            <Hash className=\"w-4 h-4\" />\n            {showAdvancedOptions ? 'Hide' : 'Show'} Advanced\n          </button>\n          {selectedFiles.length > 0 && (\n            <button\n              onClick={addToBatch}\n              className=\"flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors\"\n            >\n              <Zap className=\"w-4 h-4\" />\n              Add to Batch\n            </button>\n          )}\n        </div>\n      </div>\n\n      {/* File Upload */}\n      <div\n        onDrop={handleDrop}\n        onDragOver={handleDragOver}\n        onDragLeave={handleDragLeave}\n        className={`mb-6 border-2 border-dashed rounded-lg p-8 text-center transition-colors ${\n          isDragOver\n            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900'\n            : 'border-gray-300 dark:border-gray-600'\n        }`}\n      >\n        <Upload className=\"w-12 h-12 mx-auto mb-4 text-gray-400\" />\n        <h3 className=\"text-lg font-medium mb-2 text-gray-900 dark:text-gray-100\">\n          Add PDF files for page numbering\n        </h3>\n        <p className=\"text-gray-500 dark:text-gray-400 mb-4\">\n          Drag and drop PDF files here, or click to browse\n        </p>\n        <button\n          onClick={() => fileInputRef.current?.click()}\n          className=\"bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors\"\n        >\n          Select Files\n        </button>\n        <input\n          ref={fileInputRef}\n          type=\"file\"\n          multiple\n          accept=\".pdf\"\n          onChange={handleFileInput}\n          className=\"hidden\"\n        />\n      </div>\n\n      {/* Selected Files */}\n      {selectedFiles.length > 0 && (\n        <div className=\"mb-6\">\n          <h3 className=\"text-lg font-medium mb-3 text-gray-900 dark:text-gray-100\">\n            Selected Files ({selectedFiles.length})\n          </h3>\n          <div className=\"space-y-2 max-h-32 overflow-y-auto\">\n            {selectedFiles.map((file, index) => (\n              <div\n                key={index}\n                className=\"flex items-center justify-between p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded\"\n              >\n                <div>\n                  <span className=\"font-medium text-gray-900 dark:text-gray-100\">{file.name}</span>\n                  <span className=\"text-sm text-gray-500 dark:text-gray-400 ml-2\">\n                    {formatFileSize(file.size)}\n                  </span>\n                </div>\n                <button\n                  onClick={() => removeFile(index)}\n                  className=\"text-red-500 hover:text-red-700\"\n                >\n                  ×\n                </button>\n              </div>\n            ))}\n          </div>\n        </div>\n      )}\n\n      <div className=\"grid grid-cols-1 lg:grid-cols-2 gap-6\">\n        {/* Left Column - Configuration */}\n        <div className=\"space-y-6\">\n          {/* Templates */}\n          <div className=\"p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n            <div className=\"flex items-center justify-between mb-4\">\n              <h4 className=\"font-medium text-gray-900 dark:text-gray-100\">Quick Templates</h4>\n              <button\n                onClick={saveAsTemplate}\n                className=\"text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors\"\n              >\n                Save Current\n              </button>\n            </div>\n            \n            <div className=\"grid grid-cols-1 gap-2\">\n              {DEFAULT_TEMPLATES.map((template) => (\n                <button\n                  key={template.id}\n                  onClick={() => applyTemplate(template.id)}\n                  className={`text-left p-3 rounded border transition-colors ${\n                    activeTemplate === template.id\n                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'\n                      : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'\n                  }`}\n                >\n                  <div className=\"font-medium text-gray-900 dark:text-gray-100\">{template.name}</div>\n                  <div className=\"text-sm text-gray-500 dark:text-gray-400\">{template.description}</div>\n                </button>\n              ))}\n            </div>\n\n            {customTemplates.length > 0 && (\n              <>\n                <h5 className=\"font-medium text-gray-900 dark:text-gray-100 mt-4 mb-2\">Custom Templates</h5>\n                <div className=\"space-y-2\">\n                  {customTemplates.map((template) => (\n                    <button\n                      key={template.id}\n                      onClick={() => applyTemplate(template.id)}\n                      className={`w-full text-left p-3 rounded border transition-colors ${\n                        activeTemplate === template.id\n                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'\n                          : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'\n                      }`}\n                    >\n                      <div className=\"font-medium text-gray-900 dark:text-gray-100\">{template.name}</div>\n                    </button>\n                  ))}\n                </div>\n              </>\n            )}\n          </div>\n\n          {/* Format Options */}\n          <div className=\"p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n            <h4 className=\"font-medium text-gray-900 dark:text-gray-100 mb-4\">Number Format</h4>\n            \n            <div className=\"space-y-4\">\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Number Style\n                </label>\n                <select\n                  value={pageNumberConfig.format.style}\n                  onChange={(e) => setPageNumberConfig(prev => ({\n                    ...prev,\n                    format: { ...prev.format, style: e.target.value as any }\n                  }))}\n                  className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                >\n                  <option value=\"numeric\">Numeric (1, 2, 3...)</option>\n                  <option value=\"roman-upper\">Roman Upper (I, II, III...)</option>\n                  <option value=\"roman-lower\">Roman Lower (i, ii, iii...)</option>\n                  <option value=\"alpha-upper\">Alpha Upper (A, B, C...)</option>\n                  <option value=\"alpha-lower\">Alpha Lower (a, b, c...)</option>\n                </select>\n              </div>\n\n              <div>\n                <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                  Display Pattern\n                </label>\n                <input\n                  type=\"text\"\n                  value={pageNumberConfig.format.pattern}\n                  onChange={(e) => setPageNumberConfig(prev => ({\n                    ...prev,\n                    format: { ...prev.format, pattern: e.target.value }\n                  }))}\n                  placeholder=\"e.g., Page {n} of {total}\"\n                  className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                />\n                <p className=\"text-xs text-gray-500 dark:text-gray-400 mt-1\">\n                  Use {'{n}'} for page number, {'{total}'} for total pages\n                </p>\n              </div>\n\n              <div className=\"grid grid-cols-2 gap-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Start Number\n                  </label>\n                  <input\n                    type=\"number\"\n                    value={pageNumberConfig.format.startNumber}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      format: { ...prev.format, startNumber: parseInt(e.target.value) }\n                    }))}\n                    min=\"0\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Prefix\n                  </label>\n                  <input\n                    type=\"text\"\n                    value={pageNumberConfig.format.prefix}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      format: { ...prev.format, prefix: e.target.value }\n                    }))}\n                    placeholder=\"e.g., P-\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n              </div>\n            </div>\n          </div>\n\n          {/* Position Options */}\n          <div className=\"p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n            <h4 className=\"font-medium text-gray-900 dark:text-gray-100 mb-4\">Position</h4>\n            \n            <div className=\"space-y-4\">\n              <div className=\"grid grid-cols-2 gap-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Location\n                  </label>\n                  <select\n                    value={pageNumberConfig.position.location}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      position: { ...prev.position, location: e.target.value as 'header' | 'footer' }\n                    }))}\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  >\n                    <option value=\"header\">Header (top)</option>\n                    <option value=\"footer\">Footer (bottom)</option>\n                  </select>\n                </div>\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Alignment\n                  </label>\n                  <div className=\"flex gap-1\">\n                    {[\n                      { value: 'left', icon: AlignLeft },\n                      { value: 'center', icon: AlignCenter },\n                      { value: 'right', icon: AlignRight }\n                    ].map(({ value, icon: Icon }) => (\n                      <button\n                        key={value}\n                        onClick={() => setPageNumberConfig(prev => ({\n                          ...prev,\n                          position: { ...prev.position, alignment: value as any }\n                        }))}\n                        className={`flex-1 p-2 border rounded transition-colors ${\n                          pageNumberConfig.position.alignment === value\n                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'\n                            : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'\n                        }`}\n                      >\n                        <Icon className=\"w-4 h-4 mx-auto\" />\n                      </button>\n                    ))}\n                  </div>\n                </div>\n              </div>\n\n              <div className=\"grid grid-cols-2 gap-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Horizontal Margin (pt)\n                  </label>\n                  <input\n                    type=\"number\"\n                    value={pageNumberConfig.position.marginX}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      position: { ...prev.position, marginX: parseInt(e.target.value) }\n                    }))}\n                    min=\"0\"\n                    max=\"100\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Vertical Margin (pt)\n                  </label>\n                  <input\n                    type=\"number\"\n                    value={pageNumberConfig.position.marginY}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      position: { ...prev.position, marginY: parseInt(e.target.value) }\n                    }))}\n                    min=\"0\"\n                    max=\"100\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n              </div>\n            </div>\n          </div>\n\n          {/* Typography */}\n          <div className=\"p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n            <h4 className=\"font-medium text-gray-900 dark:text-gray-100 mb-4\">Typography</h4>\n            \n            <div className=\"space-y-4\">\n              <div className=\"grid grid-cols-2 gap-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Font Family\n                  </label>\n                  <select\n                    value={pageNumberConfig.typography.fontFamily}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      typography: { ...prev.typography, fontFamily: e.target.value }\n                    }))}\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  >\n                    {FONT_FAMILIES.map(font => (\n                      <option key={font} value={font}>{font}</option>\n                    ))}\n                  </select>\n                </div>\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Font Size\n                  </label>\n                  <input\n                    type=\"number\"\n                    value={pageNumberConfig.typography.fontSize}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      typography: { ...prev.typography, fontSize: parseInt(e.target.value) }\n                    }))}\n                    min=\"6\"\n                    max=\"72\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n              </div>\n\n              <div className=\"grid grid-cols-4 gap-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Color\n                  </label>\n                  <input\n                    type=\"color\"\n                    value={pageNumberConfig.typography.color}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      typography: { ...prev.typography, color: e.target.value }\n                    }))}\n                    className=\"w-full h-10 border border-gray-300 dark:border-gray-600 rounded\"\n                  />\n                </div>\n                <div className=\"flex items-center justify-center pt-6\">\n                  <label className=\"flex items-center gap-2\">\n                    <input\n                      type=\"checkbox\"\n                      checked={pageNumberConfig.typography.bold}\n                      onChange={(e) => setPageNumberConfig(prev => ({\n                        ...prev,\n                        typography: { ...prev.typography, bold: e.target.checked }\n                      }))}\n                      className=\"rounded\"\n                    />\n                    <span className=\"text-sm text-gray-700 dark:text-gray-300\">Bold</span>\n                  </label>\n                </div>\n                <div className=\"flex items-center justify-center pt-6\">\n                  <label className=\"flex items-center gap-2\">\n                    <input\n                      type=\"checkbox\"\n                      checked={pageNumberConfig.typography.italic}\n                      onChange={(e) => setPageNumberConfig(prev => ({\n                        ...prev,\n                        typography: { ...prev.typography, italic: e.target.checked }\n                      }))}\n                      className=\"rounded\"\n                    />\n                    <span className=\"text-sm text-gray-700 dark:text-gray-300\">Italic</span>\n                  </label>\n                </div>\n                <div className=\"flex items-center justify-center pt-6\">\n                  <label className=\"flex items-center gap-2\">\n                    <input\n                      type=\"checkbox\"\n                      checked={pageNumberConfig.typography.underline}\n                      onChange={(e) => setPageNumberConfig(prev => ({\n                        ...prev,\n                        typography: { ...prev.typography, underline: e.target.checked }\n                      }))}\n                      className=\"rounded\"\n                    />\n                    <span className=\"text-sm text-gray-700 dark:text-gray-300\">Underline</span>\n                  </label>\n                </div>\n              </div>\n            </div>\n          </div>\n\n          {/* Advanced Options */}\n          {showAdvancedOptions && (\n            <div className=\"p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n              <h4 className=\"font-medium text-gray-900 dark:text-gray-100 mb-4\">Advanced Options</h4>\n              \n              <div className=\"space-y-4\">\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Page Range\n                  </label>\n                  <select\n                    value={pageNumberConfig.advanced.pageRange}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      advanced: { ...prev.advanced, pageRange: e.target.value as any }\n                    }))}\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  >\n                    <option value=\"all\">All pages</option>\n                    <option value=\"from-page\">From specific page</option>\n                    <option value=\"custom\">Custom range</option>\n                  </select>\n                </div>\n\n                {pageNumberConfig.advanced.pageRange === 'from-page' && (\n                  <div>\n                    <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                      Start from page\n                    </label>\n                    <input\n                      type=\"number\"\n                      value={pageNumberConfig.advanced.startPage}\n                      onChange={(e) => setPageNumberConfig(prev => ({\n                        ...prev,\n                        advanced: { ...prev.advanced, startPage: parseInt(e.target.value) }\n                      }))}\n                      min=\"1\"\n                      className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                    />\n                  </div>\n                )}\n\n                <div>\n                  <label className=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">\n                    Exclude Pages (e.g., \"1, 5-10\")\n                  </label>\n                  <input\n                    type=\"text\"\n                    value={pageNumberConfig.advanced.excludePages}\n                    onChange={(e) => setPageNumberConfig(prev => ({\n                      ...prev,\n                      advanced: { ...prev.advanced, excludePages: e.target.value }\n                    }))}\n                    placeholder=\"1, 5-10\"\n                    className=\"w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"\n                  />\n                </div>\n\n                <div className=\"grid grid-cols-2 gap-4\">\n                  <label className=\"flex items-center gap-2\">\n                    <input\n                      type=\"checkbox\"\n                      checked={pageNumberConfig.advanced.skipBlankPages}\n                      onChange={(e) => setPageNumberConfig(prev => ({\n                        ...prev,\n                        advanced: { ...prev.advanced, skipBlankPages: e.target.checked }\n                      }))}\n                      className=\"rounded\"\n                    />\n                    <span className=\"text-sm text-gray-700 dark:text-gray-300\">Skip blank pages</span>\n                  </label>\n                  <label className=\"flex items-center gap-2\">\n                    <input\n                      type=\"checkbox\"\n                      checked={pageNumberConfig.advanced.differentFirstPage}\n                      onChange={(e) => setPageNumberConfig(prev => ({\n                        ...prev,\n                        advanced: { ...prev.advanced, differentFirstPage: e.target.checked }\n                      }))}\n                      className=\"rounded\"\n                    />\n                    <span className=\"text-sm text-gray-700 dark:text-gray-300\">Different first page</span>\n                  </label>\n                </div>\n              </div>\n            </div>\n          )}\n        </div>\n\n        {/* Right Column - Preview */}\n        <div>\n          <div className=\"p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700\">\n            <h4 className=\"font-medium text-gray-900 dark:text-gray-100 mb-4\">Live Preview</h4>\n            \n            {previewData ? (\n              <div className=\"space-y-4\">\n                <div className=\"p-6 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 relative min-h-[300px]\">\n                  {/* Page mockup */}\n                  <div className=\"w-full h-full bg-white dark:bg-gray-100 rounded shadow-sm relative\">\n                    {/* Header area */}\n                    {pageNumberConfig.position.location === 'header' && (\n                      <div\n                        className=\"absolute top-0 left-0 right-0 p-2 flex\"\n                        style={{\n                          marginTop: `${pageNumberConfig.position.marginY}px`,\n                          paddingLeft: `${pageNumberConfig.position.marginX}px`,\n                          paddingRight: `${pageNumberConfig.position.marginX}px`\n                        }}\n                      >\n                        <div className={`flex-1 ${\n                          pageNumberConfig.position.alignment === 'left' ? 'text-left' :\n                          pageNumberConfig.position.alignment === 'right' ? 'text-right' :\n                          'text-center'\n                        }`}>\n                          <span\n                            style={{\n                              fontFamily: pageNumberConfig.typography.fontFamily,\n                              fontSize: `${pageNumberConfig.typography.fontSize}px`,\n                              color: pageNumberConfig.typography.color,\n                              fontWeight: pageNumberConfig.typography.bold ? 'bold' : 'normal',\n                              fontStyle: pageNumberConfig.typography.italic ? 'italic' : 'normal',\n                              textDecoration: pageNumberConfig.typography.underline ? 'underline' : 'none',\n                              opacity: pageNumberConfig.appearance.opacity,\n                              transform: `rotate(${pageNumberConfig.appearance.rotation}deg)`,\n                              display: 'inline-block',\n                              padding: `${pageNumberConfig.appearance.padding}px`,\n                              backgroundColor: pageNumberConfig.appearance.backgroundColor,\n                              border: pageNumberConfig.appearance.borderWidth > 0 ? `${pageNumberConfig.appearance.borderWidth}px solid ${pageNumberConfig.appearance.borderColor}` : 'none',\n                              borderRadius: `${pageNumberConfig.appearance.borderRadius}px`\n                            }}\n                          >\n                            {generatePreviewText()}\n                          </span>\n                        </div>\n                      </div>\n                    )}\n                    \n                    {/* Page content area */}\n                    <div className=\"p-8 text-gray-400 text-sm\">\n                      <div className=\"h-4 bg-gray-300 dark:bg-gray-500 rounded mb-2\"></div>\n                      <div className=\"h-4 bg-gray-300 dark:bg-gray-500 rounded mb-2 w-3/4\"></div>\n                      <div className=\"h-4 bg-gray-300 dark:bg-gray-500 rounded mb-4 w-1/2\"></div>\n                      <div className=\"h-4 bg-gray-300 dark:bg-gray-500 rounded mb-2\"></div>\n                      <div className=\"h-4 bg-gray-300 dark:bg-gray-500 rounded mb-2 w-2/3\"></div>\n                    </div>\n                    \n                    {/* Footer area */}\n                    {pageNumberConfig.position.location === 'footer' && (\n                      <div\n                        className=\"absolute bottom-0 left-0 right-0 p-2 flex\"\n                        style={{\n                          marginBottom: `${pageNumberConfig.position.marginY}px`,\n                          paddingLeft: `${pageNumberConfig.position.marginX}px`,\n                          paddingRight: `${pageNumberConfig.position.marginX}px`\n                        }}\n                      >\n                        <div className={`flex-1 ${\n                          pageNumberConfig.position.alignment === 'left' ? 'text-left' :\n                          pageNumberConfig.position.alignment === 'right' ? 'text-right' :\n                          'text-center'\n                        }`}>\n                          <span\n                            style={{\n                              fontFamily: pageNumberConfig.typography.fontFamily,\n                              fontSize: `${pageNumberConfig.typography.fontSize}px`,\n                              color: pageNumberConfig.typography.color,\n                              fontWeight: pageNumberConfig.typography.bold ? 'bold' : 'normal',\n                              fontStyle: pageNumberConfig.typography.italic ? 'italic' : 'normal',\n                              textDecoration: pageNumberConfig.typography.underline ? 'underline' : 'none',\n                              opacity: pageNumberConfig.appearance.opacity,\n                              transform: `rotate(${pageNumberConfig.appearance.rotation}deg)`,\n                              display: 'inline-block',\n                              padding: `${pageNumberConfig.appearance.padding}px`,\n                              backgroundColor: pageNumberConfig.appearance.backgroundColor,\n                              border: pageNumberConfig.appearance.borderWidth > 0 ? `${pageNumberConfig.appearance.borderWidth}px solid ${pageNumberConfig.appearance.borderColor}` : 'none',\n                              borderRadius: `${pageNumberConfig.appearance.borderRadius}px`\n                            }}\n                          >\n                            {generatePreviewText()}\n                          </span>\n                        </div>\n                      </div>\n                    )}\n                  </div>\n                </div>\n                \n                <div className=\"text-sm text-gray-600 dark:text-gray-400\">\n                  <div className=\"flex justify-between\">\n                    <span>File: {previewData.fileName}</span>\n                    <span>Pages: {previewData.pageCount}</span>\n                  </div>\n                </div>\n              </div>\n            ) : (\n              <div className=\"p-8 text-center text-gray-500 dark:text-gray-400\">\n                <Eye className=\"w-12 h-12 mx-auto mb-4\" />\n                <p>Add a PDF file to see the page numbering preview</p>\n              </div>\n            )}\n          </div>\n        </div>\n      </div>\n\n      {/* Action Buttons */}\n      {selectedFiles.length > 0 && (\n        <div className=\"mt-6 grid grid-cols-1 md:grid-cols-2 gap-4\">\n          <button\n            onClick={handleAddPageNumbers}\n            disabled={isProcessing}\n            className=\"bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2\"\n          >\n            {isProcessing ? (\n              <RefreshCw className=\"w-5 h-5 animate-spin\" />\n            ) : (\n              <Hash className=\"w-5 h-5\" />\n            )}\n            {isProcessing ? 'Adding Page Numbers...' : 'Add Page Numbers'}\n          </button>\n          \n          <button\n            onClick={addToBatch}\n            disabled={isProcessing}\n            className=\"bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2\"\n          >\n            <Zap className=\"w-5 h-5\" />\n            Add to Batch Queue\n          </button>\n        </div>\n      )}\n\n      {selectedFiles.length === 0 && (\n        <div className=\"p-4 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded-lg\">\n          <div className=\"flex items-center gap-2\">\n            <AlertCircle className=\"w-5 h-5 text-yellow-600\" />\n            <span className=\"text-yellow-800 dark:text-yellow-200\">\n              Add PDF files to apply professional page numbering.\n            </span>\n          </div>\n        </div>\n      )}\n    </div>\n  )\n}\n\nexport default ProfessionalPageNumbersTool"
+import React, { useState, useRef } from 'react'
+import { Upload, Hash, RefreshCw, AlertCircle, Eye, Zap, AlignCenter, AlignLeft, AlignRight, Settings, Download, Trash2 } from 'lucide-react'
+import { useAppStore } from '../../state/store'
+import { useJobsStore } from '../../state/jobs'
+import { workerManager } from '../../lib/workerManager'
+
+interface PageNumberConfig {
+  format: {
+    style: 'numeric' | 'roman-upper' | 'roman-lower' | 'alpha-upper' | 'alpha-lower' | 'custom'
+    pattern: string // e.g., "Page {n} of {total}", "{n}-{total}"
+    startNumber: number
+    prefix: string
+    suffix: string
+  }
+  position: {
+    location: 'header' | 'footer'
+    alignment: 'left' | 'center' | 'right'
+    marginX: number // horizontal margin from edge
+    marginY: number // vertical margin from edge
+  }
+  styling: {
+    fontSize: number
+    fontFamily: string
+    color: string
+    bold: boolean
+    italic: boolean
+    underline: boolean
+  }
+  pageRange: {
+    type: 'all' | 'range' | 'odd' | 'even' | 'custom'
+    startPage?: number
+    endPage?: number
+    excludePages?: number[]
+    skipFirst?: boolean
+    skipLast?: boolean
+  }
+  advanced: {
+    duplicateHandling: 'skip' | 'replace' | 'append'
+    numberingStyle: 'continuous' | 'restart-each'
+    showOnBlankPages: boolean
+  }
+}
+
+const FORMAT_STYLES = [
+  { id: 'numeric', name: 'Numeric (1, 2, 3)', example: '1, 2, 3' },
+  { id: 'roman-upper', name: 'Roman Uppercase (I, II, III)', example: 'I, II, III' },
+  { id: 'roman-lower', name: 'Roman Lowercase (i, ii, iii)', example: 'i, ii, iii' },
+  { id: 'alpha-upper', name: 'Alpha Uppercase (A, B, C)', example: 'A, B, C' },
+  { id: 'alpha-lower', name: 'Alpha Lowercase (a, b, c)', example: 'a, b, c' },
+  { id: 'custom', name: 'Custom Pattern', example: 'Page {n} of {total}' }
+]
+
+const FONT_FAMILIES = [
+  'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana', 'Georgia', 'Tahoma', 'Trebuchet MS'
+]
+
+const PRESET_PATTERNS = [
+  'Page {n}',
+  'Page {n} of {total}',
+  '{n} / {total}',
+  '{n} - {total}',
+  '- {n} -',
+  '[{n}]',
+  '({n})'
+]
+
+const ProfessionalPageNumbersTool: React.FC = () => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [totalPages, setTotalPages] = useState(0)
+  const [preview, setPreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const { addFile } = useAppStore()
+  const { addJob, updateJob } = useJobsStore()
+
+  const [config, setConfig] = useState<PageNumberConfig>({
+    format: {
+      style: 'numeric',
+      pattern: 'Page {n} of {total}',
+      startNumber: 1,
+      prefix: '',
+      suffix: ''
+    },
+    position: {
+      location: 'footer',
+      alignment: 'center',
+      marginX: 50,
+      marginY: 30
+    },
+    styling: {
+      fontSize: 12,
+      fontFamily: 'Arial',
+      color: '#000000',
+      bold: false,
+      italic: false,
+      underline: false
+    },
+    pageRange: {
+      type: 'all',
+      skipFirst: false,
+      skipLast: false
+    },
+    advanced: {
+      duplicateHandling: 'replace',
+      numberingStyle: 'continuous',
+      showOnBlankPages: true
+    }
+  })
+
+  const handleFileSelect = async (file: File) => {
+    if (file.type !== 'application/pdf') {
+      alert('Please select a PDF file')
+      return
+    }
+
+    setSelectedFile(file)
+    setPreview(null)
+    await generatePreview(file)
+    await getTotalPages(file)
+  }
+
+  const generatePreview = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+      const { loadPDFDocument, getPageThumbnail } = await import('../../lib/pdf')
+      const doc = await loadPDFDocument(uint8Array)
+      const page = await doc.getPage(1)
+      const thumbnail = await getPageThumbnail(page, 200)
+      setPreview(thumbnail)
+    } catch (error) {
+      console.error('Error generating preview:', error)
+    }
+  }
+
+  const getTotalPages = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+      const { loadPDFDocument } = await import('../../lib/pdf')
+      const doc = await loadPDFDocument(uint8Array)
+      setTotalPages(doc.numPages)
+    } catch (error) {
+      console.error('Error getting page count:', error)
+    }
+  }
+
+  const formatNumber = (num: number, style: string): string => {
+    switch (style) {
+      case 'numeric':
+        return num.toString()
+      case 'roman-upper':
+        return toRomanNumerals(num).toUpperCase()
+      case 'roman-lower':
+        return toRomanNumerals(num).toLowerCase()
+      case 'alpha-upper':
+        return toAlpha(num).toUpperCase()
+      case 'alpha-lower':
+        return toAlpha(num).toLowerCase()
+      default:
+        return num.toString()
+    }
+  }
+
+  const toRomanNumerals = (num: number): string => {
+    const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+    const numerals = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I']
+    let result = ''
+    
+    for (let i = 0; i < values.length; i++) {
+      while (num >= values[i]) {
+        result += numerals[i]
+        num -= values[i]
+      }
+    }
+    return result
+  }
+
+  const toAlpha = (num: number): string => {
+    let result = ''
+    while (num > 0) {
+      num--
+      result = String.fromCharCode(65 + (num % 26)) + result
+      num = Math.floor(num / 26)
+    }
+    return result
+  }
+
+  const formatPageNumber = (pageNum: number, total: number): string => {
+    if (config.format.style === 'custom') {
+      return config.format.pattern
+        .replace(/{n}/g, formatNumber(pageNum, 'numeric'))
+        .replace(/{total}/g, total.toString())
+        .replace(/{N}/g, formatNumber(pageNum, config.format.style))
+    }
+    
+    const formattedNum = formatNumber(pageNum, config.format.style)
+    return `${config.format.prefix}${formattedNum}${config.format.suffix}`
+  }
+
+  const getPreviewText = (): string => {
+    if (!totalPages) return 'Page 1'
+    return formatPageNumber(1, totalPages)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0])
+    }
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileSelect(e.target.files[0])
+    }
+  }
+
+  const handleAddPageNumbers = async () => {
+    if (!selectedFile) return
+
+    setIsProcessing(true)
+    const jobId = `pagenumbers-${Date.now()}`
+    
+    try {
+      addJob({
+        id: jobId,
+        type: 'page-numbers',
+        name: 'Add page numbers to ' + selectedFile.name,
+        status: 'processing',
+        fileIds: [selectedFile.name],
+        progress: 0,
+        startTime: Date.now(),
+        cancellable: true
+      })
+
+      const arrayBuffer = await selectedFile.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+
+      updateJob(jobId, { progress: 30 })
+
+      // Prepare page number options for the worker
+      const pageNumberOptions = {
+        position: config.position.alignment,
+        fontSize: config.styling.fontSize,
+        fontFamily: config.styling.fontFamily,
+        color: {
+          r: parseInt(config.styling.color.slice(1, 3), 16) / 255,
+          g: parseInt(config.styling.color.slice(3, 5), 16) / 255,
+          b: parseInt(config.styling.color.slice(5, 7), 16) / 255
+        },
+        startPage: config.pageRange.startPage || 1,
+        startNumber: config.format.startNumber,
+        marginX: config.position.marginX,
+        marginY: config.position.marginY,
+        excludeFirstPage: config.pageRange.skipFirst || false,
+        excludeLastPage: config.pageRange.skipLast || false,
+        format: config.format.style,
+        pattern: config.format.pattern
+      }
+
+      updateJob(jobId, { progress: 60 })
+
+      const result = await workerManager.addPageNumbers(uint8Array, pageNumberOptions)
+      
+      updateJob(jobId, { progress: 90 })
+
+      // Create new file with page numbers
+      const numberedFileName = selectedFile.name.replace(/\.pdf$/i, '_numbered.pdf')
+      const pdfFile = {
+        id: `numbered-${Date.now()}`,
+        name: numberedFileName,
+        size: result.byteLength,
+        type: 'application/pdf',
+        lastModified: Date.now(),
+        file: new File([new Uint8Array(result)], numberedFileName, { type: 'application/pdf' }),
+        pageCount: totalPages,
+        data: result
+      } as any
+      
+      addFile(pdfFile)
+
+      updateJob(jobId, {
+        status: 'completed',
+        progress: 100,
+        endTime: Date.now()
+      })
+
+      console.log('Page numbers added successfully')
+
+    } catch (error) {
+      console.error('Error adding page numbers:', error)
+      updateJob(jobId, {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        endTime: Date.now()
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+              <Hash className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Professional Page Numbers</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Advanced page numbering with custom formats and positioning</p>
+            </div>
+          </div>
+          {selectedFile && (
+            <button
+              onClick={handleAddPageNumbers}
+              disabled={isProcessing}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isProcessing ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {isProcessing ? 'Processing...' : 'Add Page Numbers'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Main Content */}
+        <div className="flex-1 overflow-auto">
+          {/* File Upload */}
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div
+              className={`relative border-2 border-dashed rounded-lg p-6 transition-colors ${
+                isDragOver
+                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="mt-4">
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <span className="text-base font-medium text-blue-600 hover:text-blue-500">
+                      Upload a PDF file
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-400"> or drag and drop</span>
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    id="file-upload"
+                    name="file-upload"
+                    type="file"
+                    className="sr-only"
+                    accept=".pdf"
+                    onChange={handleFileInputChange}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">PDF files up to 10MB</p>
+              </div>
+            </div>
+
+            {/* Selected File */}
+            {selectedFile && (
+              <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedFile.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      {totalPages > 0 && ` • ${totalPages} pages`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedFile(null)
+                      setPreview(null)
+                      setTotalPages(0)
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Configuration */}
+          <div className="p-6 space-y-8">
+            {/* Format Settings */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Number Format</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Numbering Style
+                  </label>
+                  <select
+                    value={config.format.style}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      format: { ...prev.format, style: e.target.value as any }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {FORMAT_STYLES.map(style => (
+                      <option key={style.id} value={style.id}>
+                        {style.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Example: {FORMAT_STYLES.find(s => s.id === config.format.style)?.example}
+                  </p>
+                </div>
+
+                {config.format.style === 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Custom Pattern
+                    </label>
+                    <input
+                      type="text"
+                      value={config.format.pattern}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        format: { ...prev.format, pattern: e.target.value }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder="Use {n} for page number, {total} for total pages"
+                    />
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Quick patterns:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PRESET_PATTERNS.map(pattern => (
+                          <button
+                            key={pattern}
+                            onClick={() => setConfig(prev => ({
+                              ...prev,
+                              format: { ...prev.format, pattern }
+                            }))}
+                            className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                          >
+                            {pattern}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Start Number
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={config.format.startNumber}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        format: { ...prev.format, startNumber: parseInt(e.target.value) || 1 }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Prefix
+                    </label>
+                    <input
+                      type="text"
+                      value={config.format.prefix}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        format: { ...prev.format, prefix: e.target.value }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder="e.g., Page "
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Suffix
+                    </label>
+                    <input
+                      type="text"
+                      value={config.format.suffix}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        format: { ...prev.format, suffix: e.target.value }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder="e.g., ."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Position Settings */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Position</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Location
+                    </label>
+                    <select
+                      value={config.position.location}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        position: { ...prev.position, location: e.target.value as any }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="header">Header</option>
+                      <option value="footer">Footer</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Alignment
+                    </label>
+                    <div className="flex border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
+                      <button
+                        onClick={() => setConfig(prev => ({
+                          ...prev,
+                          position: { ...prev.position, alignment: 'left' }
+                        }))}
+                        className={`flex-1 py-2 px-3 text-center ${
+                          config.position.alignment === 'left'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <AlignLeft className="w-4 h-4 mx-auto" />
+                      </button>
+                      <button
+                        onClick={() => setConfig(prev => ({
+                          ...prev,
+                          position: { ...prev.position, alignment: 'center' }
+                        }))}
+                        className={`flex-1 py-2 px-3 text-center ${
+                          config.position.alignment === 'center'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <AlignCenter className="w-4 h-4 mx-auto" />
+                      </button>
+                      <button
+                        onClick={() => setConfig(prev => ({
+                          ...prev,
+                          position: { ...prev.position, alignment: 'right' }
+                        }))}
+                        className={`flex-1 py-2 px-3 text-center ${
+                          config.position.alignment === 'right'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <AlignRight className="w-4 h-4 mx-auto" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Horizontal Margin (px)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="200"
+                      value={config.position.marginX}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        position: { ...prev.position, marginX: parseInt(e.target.value) || 50 }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Vertical Margin (px)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="200"
+                      value={config.position.marginY}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        position: { ...prev.position, marginY: parseInt(e.target.value) || 30 }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Styling Settings */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Styling</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Font Family
+                    </label>
+                    <select
+                      value={config.styling.fontFamily}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        styling: { ...prev.styling, fontFamily: e.target.value }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      {FONT_FAMILIES.map(font => (
+                        <option key={font} value={font}>{font}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Font Size
+                    </label>
+                    <input
+                      type="number"
+                      min="6"
+                      max="72"
+                      value={config.styling.fontSize}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        styling: { ...prev.styling, fontSize: parseInt(e.target.value) || 12 }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Color
+                    </label>
+                    <input
+                      type="color"
+                      value={config.styling.color}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        styling: { ...prev.styling, color: e.target.value }
+                      }))}
+                      className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-md"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={config.styling.bold}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        styling: { ...prev.styling, bold: e.target.checked }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Bold</span>
+                  </label>
+                  
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={config.styling.italic}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        styling: { ...prev.styling, italic: e.target.checked }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Italic</span>
+                  </label>
+                  
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={config.styling.underline}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        styling: { ...prev.styling, underline: e.target.checked }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Underline</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Page Range Settings */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Page Range</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="pageRange"
+                      value="all"
+                      checked={config.pageRange.type === 'all'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        pageRange: { ...prev.pageRange, type: 'all' }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">All Pages</span>
+                  </label>
+                  
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="pageRange"
+                      value="odd"
+                      checked={config.pageRange.type === 'odd'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        pageRange: { ...prev.pageRange, type: 'odd' }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Odd Pages</span>
+                  </label>
+                  
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="pageRange"
+                      value="even"
+                      checked={config.pageRange.type === 'even'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        pageRange: { ...prev.pageRange, type: 'even' }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Even Pages</span>
+                  </label>
+                  
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="pageRange"
+                      value="range"
+                      checked={config.pageRange.type === 'range'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        pageRange: { ...prev.pageRange, type: 'range' }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Range</span>
+                  </label>
+                </div>
+
+                {config.pageRange.type === 'range' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Start Page
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={totalPages || 999}
+                        value={config.pageRange.startPage || 1}
+                        onChange={(e) => setConfig(prev => ({
+                          ...prev,
+                          pageRange: { ...prev.pageRange, startPage: parseInt(e.target.value) || 1 }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        End Page
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={totalPages || 999}
+                        value={config.pageRange.endPage || totalPages || 1}
+                        onChange={(e) => setConfig(prev => ({
+                          ...prev,
+                          pageRange: { ...prev.pageRange, endPage: parseInt(e.target.value) || totalPages || 1 }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={config.pageRange.skipFirst || false}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        pageRange: { ...prev.pageRange, skipFirst: e.target.checked }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Skip First Page</span>
+                  </label>
+                  
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={config.pageRange.skipLast || false}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        pageRange: { ...prev.pageRange, skipLast: e.target.checked }
+                      }))}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Skip Last Page</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview Panel */}
+        {preview && (
+          <div className="w-80 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Preview</h3>
+            <div className="relative bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+              <img
+                src={preview}
+                alt="PDF Preview"
+                className="w-full h-auto rounded-lg"
+              />
+              {/* Preview overlay showing page number position */}
+              <div
+                className={`absolute text-xs pointer-events-none ${
+                  config.position.location === 'header' ? 'top-2' : 'bottom-2'
+                } ${
+                  config.position.alignment === 'left' ? 'left-2' :
+                  config.position.alignment === 'right' ? 'right-2' : 'left-1/2 transform -translate-x-1/2'
+                }`}
+                style={{
+                  color: config.styling.color,
+                  fontSize: Math.max(8, config.styling.fontSize / 2),
+                  fontFamily: config.styling.fontFamily,
+                  fontWeight: config.styling.bold ? 'bold' : 'normal',
+                  fontStyle: config.styling.italic ? 'italic' : 'normal',
+                  textDecoration: config.styling.underline ? 'underline' : 'none'
+                }}
+              >
+                {getPreviewText()}
+              </div>
+            </div>
+            
+            <div className="mt-4 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+              <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Preview Text</h4>
+              <p className="text-sm text-gray-900 dark:text-gray-100 font-mono bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                {getPreviewText()}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default ProfessionalPageNumbersTool

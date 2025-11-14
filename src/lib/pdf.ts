@@ -469,3 +469,27 @@ export async function getPageThumbnail(
     throw new Error(`Failed to generate thumbnail: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
+
+// Stub functions for enterprise features that will be implemented later
+export const getDocumentMetadata = async (_doc: any) => {
+  return {
+    info: {
+      Title: '',
+      Author: '',
+      Subject: '',
+      Keywords: '',
+      Creator: '',
+      Producer: '',
+      CreationDate: '',
+      ModDate: ''
+    }
+  }
+}
+
+export const analyzeContent = async (_doc: any) => {
+  return { hasImages: false, hasText: true, complexity: 'simple' }
+}
+
+export const analyzeSecurityInfo = async (_doc: any) => {
+  return { isEncrypted: false, permissions: {} }
+}

@@ -7,6 +7,7 @@ import { Help } from './routes/Help'
 import { ThemeProvider } from './components/ThemeProvider'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Toast } from './components/Toast'
+import BatchProcessorPanel from './components/BatchProcessorPanel'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
                 <Route path="/help" element={<Help />} />
               </Routes>
             </main>
+            <BatchProcessorPanel />
             <Toast />
           </div>
         </Router>

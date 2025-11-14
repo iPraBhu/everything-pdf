@@ -53,10 +53,12 @@ const MergeTool: React.FC = () => {
       addJob({
         id: jobId,
         type: 'merge',
-        status: 'processing',
-        files: selectedFiles.map(f => f.file.name),
-        progress: 0,
-        createdAt: new Date()
+        name: `Merge ${selectedFiles.length} PDFs`,
+        status: 'running',
+        progress: { current: 0, total: 100 },
+        startTime: Date.now(),
+        cancellable: false,
+        fileIds: []
       })
 
       const files = await Promise.all(
@@ -70,7 +72,7 @@ const MergeTool: React.FC = () => {
         options: {
           ...mergeOptions,
           onProgress: (progress: number) => {
-            updateJob(jobId, { progress })
+            updateJob(jobId, { progress: { current: progress, total: 100, message: 'Merging...' } })
           }
         }
       })
@@ -82,11 +84,20 @@ const MergeTool: React.FC = () => {
       setSizeReduction(reduction)
       
       const mergedFile = new File([result], 'merged-optimized.pdf', { type: 'application/pdf' })
-      addFile(mergedFile)
+      // Convert File to PDFFile
+      const pdfFile: PDFFile = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        name: mergedFile.name,
+        size: mergedFile.size,
+        pageCount: 1, // Will be updated after loading
+        data: new Uint8Array(await mergedFile.arrayBuffer()),
+        lastModified: mergedFile.lastModified || Date.now()
+      }
+      addFile(pdfFile)
       
       updateJob(jobId, {
         status: 'completed',
-        progress: 100,
+        progress: { current: 100, total: 100, message: 'Completed' },
         result: {
           fileName: 'merged-optimized.pdf',
           fileSize: newSize,
@@ -146,11 +157,24 @@ const MergeTool: React.FC = () => {
       try {
         const arrayBuffer = await file.arrayBuffer()
         const uint8Array = new Uint8Array(arrayBuffer)
-        const { loadPDFDocument, getPageThumbnail, getPDFInfo, extractMetadata } = await import('../../lib/pdf')
+        const { loadPDFDocument, getPageThumbnail, getPDFInfo } = await import('../../lib/pdf')
         
         const doc = await loadPDFDocument(uint8Array)
         const info = await getPDFInfo(doc)
-        const metadata = await extractMetadata(doc)
+        // Placeholder for metadata extraction
+        const info = await getPDFInfo(doc)
+        const metadata = {
+          title: file.name,
+          pageCount: info.pageCount,
+          size: file.size,
+          info: {
+            Title: file.name,
+            Author: 'Unknown',
+            Subject: '',
+            CreationDate: new Date(),
+            ModDate: new Date()
+          }
+        }
         const page = await doc.getPage(1)
         const thumbnail = await getPageThumbnail(page, 150) // Higher quality thumbnails
         
@@ -236,7 +260,7 @@ const MergeTool: React.FC = () => {
     return Math.round(totalSize * compressionRatio * optimizationReduction)
   }, [selectedFiles, mergeOptions])
 
-  const addToBatch = () => {
+  const addToBatch = async () => {
     if (selectedFiles.length < 2) return
 
     globalBatchProcessor.addOperation({
@@ -247,9 +271,18 @@ const MergeTool: React.FC = () => {
       onProgress: (progress) => {
         // Update progress in UI
       },
-      onComplete: (result) => {
+      onComplete: async (result) => {
         const resultFile = new File([result], 'merged.pdf', { type: 'application/pdf' })
-        addFile(resultFile)
+        // Convert File to PDFFile
+        const pdfFile: PDFFile = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name: resultFile.name,
+          size: resultFile.size,
+          pageCount: 1, // Will be updated after loading
+          data: new Uint8Array(await resultFile.arrayBuffer()),
+          lastModified: resultFile.lastModified || Date.now()
+        }
+        addFile(pdfFile)
       }
     })
 

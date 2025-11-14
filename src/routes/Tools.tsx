@@ -37,12 +37,23 @@ import {
   Info,
   ArrowLeft
 } from 'lucide-react'
-import MergeTool from '../components/tools/MergeTool'
+import EnhancedMergeTool from '../components/tools/EnhancedMergeTool'
 import SplitTool from '../components/tools/SplitTool'
 import WatermarkTool from '../components/tools/WatermarkTool'
 import NUpTool from '../components/tools/NUpTool'
 import PosterizeTool from '../components/tools/PosterizeTool'
 import InterleaveTool from '../components/tools/InterleaveTool'
+import SmartSplitterTool from '../components/tools/SmartSplitterTool'
+import AdvancedWatermarkTool from '../components/tools/AdvancedWatermarkTool'
+import ProfessionalPageNumbersTool from '../components/tools/ProfessionalPageNumbersTool'
+
+import AdvancedPageExtractionTool from '../components/tools/AdvancedPageExtractionTool'
+import NUpLayoutTool from '../components/tools/NUpLayoutTool'
+
+import DisabledToolStub from '../components/tools/DisabledToolStub'
+import DocumentMetadataEditor from '../components/tools/DocumentMetadataEditor'
+import PDFCompressionTool from '../components/tools/PDFCompressionTool'
+import PDFSecurityTool from '../components/tools/PDFSecurityTool'
 // Temporarily disable these tools until PDF utility methods are implemented
 // import PageNumbersTool from '../components/tools/PageNumbersTool'
 // import RotationTool from '../components/tools/RotationTool'
@@ -60,17 +71,22 @@ interface Tool {
 const tools: Tool[] = [
   // Viewer & Organize
   { id: 'view', name: 'View PDF', description: 'Open and view PDF files', icon: Eye, category: 'viewer' },
-  { id: 'merge', name: 'Merge PDFs', description: 'Combine multiple PDF files into one', icon: Merge, category: 'viewer', component: MergeTool },
+  { id: 'merge', name: 'Merge PDFs', description: 'Combine multiple PDF files into one', icon: Merge, category: 'viewer', component: EnhancedMergeTool },
+  { id: 'enhanced-merge', name: 'Enhanced Merge', description: 'Advanced merge with compression and optimization', icon: Layers, category: 'viewer', component: EnhancedMergeTool },
   { id: 'split', name: 'Split PDF', description: 'Split PDF into multiple files', icon: SplitSquareHorizontal, category: 'viewer', component: SplitTool },
+  { id: 'smart-split', name: 'Smart Splitter', description: 'AI-powered splitting with content analysis', icon: Scan, category: 'viewer', component: SmartSplitterTool },
   { id: 'extract', name: 'Extract Pages', description: 'Extract specific pages', icon: FileDown, category: 'viewer' },
+  { id: 'advanced-extract', name: 'Advanced Page Extraction', description: 'Professional page selection with thumbnails and filtering', icon: FileText, category: 'viewer', component: AdvancedPageExtractionTool },
   { id: 'reorder', name: 'Reorder Pages', description: 'Reorder pages', icon: RefreshCw, category: 'viewer' },
   { id: 'rotate', name: 'Rotate Pages', description: 'Rotate pages', icon: RotateCw, category: 'viewer' },
 
   // Edit
   { id: 'crop', name: 'Crop Pages', description: 'Crop pages', icon: Crop, category: 'edit' },
   { id: 'page-numbers', name: 'Page Numbers', description: 'Add page numbers', icon: Hash, category: 'edit' },
+  { id: 'professional-page-numbers', name: 'Professional Page Numbers', description: 'Advanced page numbering with custom formats and positioning', icon: Type, category: 'edit', component: ProfessionalPageNumbersTool },
   { id: 'headers-footers', name: 'Headers & Footers', description: 'Add headers and footers', icon: Type, category: 'edit' },
   { id: 'watermark', name: 'Watermark', description: 'Add watermarks', icon: Droplets, category: 'edit', component: WatermarkTool },
+  { id: 'advanced-watermark', name: 'Advanced Watermark', description: 'Professional watermarking with templates and live preview', icon: Palette, category: 'edit', component: AdvancedWatermarkTool },
   { id: 'invert', name: 'Invert Colors', description: 'Invert colors', icon: RefreshCw, category: 'edit' },
   { id: 'background', name: 'Background Color', description: 'Change background color', icon: Palette, category: 'edit' },
   { id: 'text-color', name: 'Text Color', description: 'Change text color', icon: Palette, category: 'edit' },
@@ -78,6 +94,7 @@ const tools: Tool[] = [
 
   // Layout
   { id: 'nup', name: 'N-Up Layout', description: 'Multiple pages per sheet', icon: Grid3x3, category: 'layout', component: NUpTool },
+  { id: 'nup-layout', name: 'Professional N-Up Layout', description: 'Advanced N-Up layouts with custom spacing and scaling', icon: Layout, category: 'layout', component: NUpLayoutTool },
   { id: 'poster', name: 'Posterize', description: 'Split large pages into tiles', icon: Layers, category: 'layout', component: PosterizeTool },
   { id: 'interleave', name: 'Interleave Pages', description: 'Mix pages from multiple documents', icon: Layers, category: 'layout', component: InterleaveTool },
 
@@ -94,15 +111,18 @@ const tools: Tool[] = [
   // Security
   { id: 'encrypt', name: 'Encrypt PDF', description: 'Password protect', icon: Lock, category: 'security' },
   { id: 'decrypt', name: 'Decrypt PDF', description: 'Remove password', icon: Unlock, category: 'security' },
+  { id: 'pdf-security', name: 'PDF Security & Encryption', description: 'Advanced security with permissions and vulnerability analysis', icon: ShieldCheck, category: 'security', component: PDFSecurityTool },
   { id: 'permissions', name: 'Set Permissions', description: 'Set permissions', icon: ShieldCheck, category: 'security' },
   { id: 'sign', name: 'Digital Signature', description: 'Digital signature', icon: PenTool, category: 'security' },
   { id: 'redact', name: 'Redact Text', description: 'Redact sensitive information', icon: EyeOff, category: 'security' },
 
   // Optimize
   { id: 'compress', name: 'Compress PDF', description: 'Reduce file size', icon: Minimize, category: 'optimize' },
+  { id: 'pdf-compression', name: 'Advanced PDF Compression', description: 'Professional compression with quality presets and analysis', icon: Zap, category: 'optimize', component: PDFCompressionTool },
   { id: 'repair', name: 'Repair PDF', description: 'Repair damaged PDFs', icon: Wrench, category: 'optimize' },
   { id: 'sanitize', name: 'Sanitize PDF', description: 'Remove metadata and scripts', icon: Trash, category: 'optimize' },
   { id: 'metadata', name: 'Edit Metadata', description: 'Edit document information', icon: Info, category: 'optimize' },
+  { id: 'metadata-editor', name: 'Document Metadata Editor', description: 'Comprehensive metadata editing with templates and custom fields', icon: Settings, category: 'optimize', component: DocumentMetadataEditor },
   { id: 'linearize', name: 'Linearize PDF', description: 'Optimize for web viewing', icon: Zap, category: 'optimize' },
 
   // OCR

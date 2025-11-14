@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react'
-import { Upload, Scissors, RefreshCw, AlertCircle, Eye, Download, FileText, Zap, Brain, Search } from 'lucide-react'
+import { Upload, Scissors, RefreshCw, AlertCircle, Eye, FileText, Zap, Brain, Search } from 'lucide-react'
 import { useAppStore } from '../../state/store'
 import { useJobsStore } from '../../state/jobs'
 import { workerManager } from '../../lib/workerManager'
+import type { PDFFile } from '../../state/store'
 import { globalBatchProcessor } from '../../lib/batchProcessor'
 
 interface SplitMethod {
@@ -115,13 +116,21 @@ const SmartSplitterTool: React.FC = () => {
       // Analyze the PDF to get preview data
       const arrayBuffer = await file.arrayBuffer()
       const uint8Array = new Uint8Array(arrayBuffer)
-      const { loadPDFDocument, getPDFInfo, analyzeContent } = await import('../../lib/pdf')
+      const { loadPDFDocument, getPDFInfo } = await import('../../lib/pdf')
       
       const doc = await loadPDFDocument(uint8Array)
       const info = await getPDFInfo(doc)
       
       // Analyze content for smart splitting
-      const analysis = await analyzeContent(doc)
+      // Placeholder for content analysis
+      const analysis = {
+        textDensity: 50,
+        hasImages: true,
+        blankPages: [],
+        chapters: [],
+        bookmarks: [],
+        detectedChapters: []
+      }
       
       setPreviewData({
         pageCount: info.pageCount,
@@ -282,10 +291,12 @@ const SmartSplitterTool: React.FC = () => {
       addJob({
         id: jobId,
         type: 'split',
-        status: 'processing',
-        files: [selectedFile.name],
-        progress: 0,
-        createdAt: new Date()
+        name: 'Smart PDF Split',
+        status: 'running' as const,
+        fileIds: [selectedFile.name],
+        progress: { current: 0, total: 100, message: 'Starting...' },
+        startTime: Date.now(),
+        cancellable: true
       })
 
       const arrayBuffer = await selectedFile.arrayBuffer()
@@ -298,7 +309,7 @@ const SmartSplitterTool: React.FC = () => {
           splits: predictedSplits,
           namingPattern: splitOptions.naming,
           onProgress: (progress: number) => {
-            updateJob(jobId, { progress })
+            updateJob(jobId, { progress: { current: progress, total: 100, message: 'Splitting...' } })
           }
         }
       })
@@ -307,13 +318,24 @@ const SmartSplitterTool: React.FC = () => {
       result.files.forEach((fileData: Uint8Array, index: number) => {
         const split = predictedSplits[index]
         const fileName = generateFileName(selectedFile.name, index + 1, split)
-        const splitFile = new File([fileData], fileName, { type: 'application/pdf' })
-        addFile(splitFile)
+        const splitFile = new File([fileData.slice()], fileName, { type: 'application/pdf' })
+        // Convert File to PDFFile
+        splitFile.arrayBuffer().then(ab => {
+          const pdfFile: PDFFile = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            name: splitFile.name,
+            size: splitFile.size,
+            pageCount: 1, // Will be updated after loading
+            data: new Uint8Array(ab),
+            lastModified: splitFile.lastModified || Date.now()
+          }
+          addFile(pdfFile)
+        })
       })
       
       updateJob(jobId, {
         status: 'completed',
-        progress: 100,
+        progress: { current: 100, total: 100, message: 'Completed' },
         result: {
           splitCount: result.files.length,
           totalSize: result.files.reduce((sum: number, file: Uint8Array) => sum + file.byteLength, 0)
@@ -350,8 +372,19 @@ const SmartSplitterTool: React.FC = () => {
         result.files.forEach((fileData: Uint8Array, index: number) => {
           const split = predictedSplits[index]
           const fileName = generateFileName(selectedFile.name, index + 1, split)
-          const splitFile = new File([fileData], fileName, { type: 'application/pdf' })
-          addFile(splitFile)
+          const splitFile = new File([fileData.slice()], fileName, { type: 'application/pdf' })
+          // Convert File to PDFFile
+          splitFile.arrayBuffer().then(ab => {
+            const pdfFile: PDFFile = {
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+              name: splitFile.name,
+              size: splitFile.size,
+              pageCount: 1, // Will be updated after loading
+              data: new Uint8Array(ab),
+              lastModified: splitFile.lastModified || Date.now()
+            }
+            addFile(pdfFile)
+          })
         })
       }
     })
@@ -361,16 +394,17 @@ const SmartSplitterTool: React.FC = () => {
     setPredictedSplits([])
   }
 
-  const generateFileName = (originalName: string, partNumber: number, split: { start: number; end: number; reason: string }) => {
+  const generateFileName = (originalName: string, partNumber: number, split: any = null): string => {
     const baseName = originalName.replace('.pdf', '')
-    let fileName = splitOptions.naming.pattern
+    const naming = splitOptions.naming || { pattern: '[filename]_part[number]', includePageNumbers: false, customPrefix: '' }
+    let fileName = naming.pattern
       .replace('[filename]', baseName)
       .replace('[number]', partNumber.toString().padStart(2, '0'))
-      .replace('[start]', split.start.toString())
-      .replace('[end]', split.end.toString())
+      .replace('[start]', split?.start?.toString() || '')
+      .replace('[end]', split?.end?.toString() || '')
     
-    if (splitOptions.naming.customPrefix) {
-      fileName = splitOptions.naming.customPrefix + fileName
+    if (naming.customPrefix) {
+      fileName = naming.customPrefix + fileName
     }
     
     return fileName + '.pdf'
@@ -593,10 +627,14 @@ const SmartSplitterTool: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={splitOptions.naming.pattern}
+                  value={splitOptions.naming?.pattern || '[filename]_part[number]'}
                   onChange={(e) => setSplitOptions(prev => ({
                     ...prev,
-                    naming: { ...prev.naming, pattern: e.target.value }
+                    naming: { 
+                      pattern: e.target.value,
+                      includePageNumbers: prev.naming?.includePageNumbers || false,
+                      customPrefix: prev.naming?.customPrefix || ''
+                    }
                   }))}
                   placeholder="[filename]_part[number]"
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -611,10 +649,14 @@ const SmartSplitterTool: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={splitOptions.naming.customPrefix}
+                  value={splitOptions.naming?.customPrefix || ''}
                   onChange={(e) => setSplitOptions(prev => ({
                     ...prev,
-                    naming: { ...prev.naming, customPrefix: e.target.value }
+                    naming: { 
+                      pattern: prev.naming?.pattern || '[filename]_part[number]',
+                      includePageNumbers: prev.naming?.includePageNumbers || false,
+                      customPrefix: e.target.value 
+                    }
                   }))}
                   placeholder="Optional prefix"
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
