@@ -3,7 +3,10 @@ import * as pdfjsLib from 'pdfjs-dist'
 import { PDFDocumentProxy } from 'pdfjs-dist'
 import { Trash2, Copy, ChevronUp, ChevronDown } from 'lucide-react'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.0.189/build/pdf.worker.min.js`
+// Configure PDF.js worker to use local file
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.js`
+}
 
 interface PageThumbnail {
   pageNum: number

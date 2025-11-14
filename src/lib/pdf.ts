@@ -2,11 +2,21 @@ import { PDFDocument, PDFPage, rgb, degrees } from 'pdf-lib'
 import * as pdfjs from 'pdfjs-dist'
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 
-// Configure pdf.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.js',
-  import.meta.url
-).href
+// Configure pdf.js worker - use the bundled worker
+if (typeof window !== 'undefined') {
+  // Try to use the local worker file first
+  pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.js`
+} else {
+  // For server-side rendering or Node.js environment
+  try {
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.mjs',
+      import.meta.url
+    ).toString()
+  } catch (e) {
+    console.warn('Failed to set PDF worker source:', e)
+  }
+}
 
 /**
  * PDF processing utilities
