@@ -290,46 +290,70 @@ const OCRTool: React.FC = () => {
 
         updateJob(jobId, { progress: (pageNumber / selectedFile.pageCount) * 80 })
 
-        // Simulate OCR processing
-        setOcrProgress(prev => prev ? { ...prev, stage: 'recognition', stageProgress: 50 } : null)
-        
-        // TODO: Implement actual OCR processing in workerManager
-        // For now, we'll simulate OCR results
-        console.warn('OCR processing not yet implemented in workerManager')
-        
-        const mockResult: OCRResult = {
-          pageNumber,
-          text: `This is mock OCR text for page ${pageNumber}. In a real implementation, this would contain the actual extracted text from the PDF page using Tesseract.js or similar OCR engine.
-
-Languages: ${options.language.join(', ')}
-Engine Mode: ${options.engineMode}
-DPI: ${options.dpi}
-
-The text extraction would include proper formatting, confidence scores, and bounding box coordinates for each recognized word and paragraph.`,
-          confidence: 85 + Math.random() * 10,
-          words: Array.from({ length: 20 + Math.floor(Math.random() * 30) }, (_, i) => ({
-            text: `word${i}`,
-            confidence: 75 + Math.random() * 20,
-            bbox: {
-              x: Math.random() * 800,
-              y: Math.random() * 600,
-              width: 50 + Math.random() * 100,
-              height: 20 + Math.random() * 10
-            }
-          })),
-          paragraphs: Array.from({ length: 3 + Math.floor(Math.random() * 5) }, (_, i) => ({
-            text: `This is paragraph ${i + 1} extracted from page ${pageNumber}.`,
-            confidence: 80 + Math.random() * 15,
-            bbox: {
-              x: 50 + Math.random() * 100,
-              y: i * 100 + 50,
-              width: 400 + Math.random() * 200,
-              height: 80 + Math.random() * 40
-            }
-          }))
+        try {
+          // Render PDF page as image for OCR
+          setOcrProgress(prev => prev ? { ...prev, stage: 'preprocessing', stageProgress: 20 } : null)
+          
+          const imageData = await workerManager.renderPageAsImage(
+            selectedFile.data,
+            pageIndex,
+            { scale: options.dpi / 72 } // Convert DPI to scale factor
+          )
+          
+          setOcrProgress(prev => prev ? { ...prev, stage: 'recognition', stageProgress: 50 } : null)
+          
+          // Perform actual OCR using the OCR worker
+          const ocrResult = await workerManager.performOCR(imageData, {
+            language: options.language.join('+') // Tesseract format for multiple languages
+          })
+          
+          setOcrProgress(prev => prev ? { ...prev, stage: 'recognition', stageProgress: 80 } : null)
+          
+          setOcrProgress(prev => prev ? { ...prev, stage: 'postprocessing', stageProgress: 90 } : null)
+          
+          // Convert OCR result to our format
+          const processedResult: OCRResult = {
+            pageNumber,
+            text: ocrResult.text,
+            confidence: ocrResult.confidence,
+            words: ocrResult.words.map(word => ({
+              text: word.text,
+              confidence: word.confidence,
+              bbox: {
+                x: word.bbox.x0,
+                y: word.bbox.y0,
+                width: word.bbox.x1 - word.bbox.x0,
+                height: word.bbox.y1 - word.bbox.y0
+              }
+            })),
+            paragraphs: ocrResult.paragraphs.map(para => ({
+              text: para.text,
+              confidence: para.confidence,
+              bbox: {
+                x: para.bbox.x0,
+                y: para.bbox.y0,
+                width: para.bbox.x1 - para.bbox.x0,
+                height: para.bbox.y1 - para.bbox.y0
+              }
+            }))
+          }
+          
+          results.push(processedResult)
+          
+        } catch (ocrError) {
+          console.error(`OCR error on page ${pageNumber}:`, ocrError)
+          
+          // Fallback to error result
+          const errorResult: OCRResult = {
+            pageNumber,
+            text: `OCR processing failed for page ${pageNumber}. Error: ${ocrError instanceof Error ? ocrError.message : 'Unknown error'}`,
+            confidence: 0,
+            words: [],
+            paragraphs: []
+          }
+          
+          results.push(errorResult)
         }
-
-        results.push(mockResult)
         
         setOcrProgress(prev => prev ? { ...prev, stage: 'postprocessing', stageProgress: 90 } : null)
         
@@ -393,13 +417,12 @@ The text extraction would include proper formatting, confidence scores, and boun
         endTime: Date.now()
       })
 
-      console.log('OCR processing completed (simulated)', { 
-        pages: results.length, 
+      console.log('OCR processing completed', { 
+        pages: results.length,
         avgConfidence: results.reduce((sum, r) => sum + r.confidence, 0) / results.length,
+        totalText: results.reduce((sum, r) => sum + r.text.length, 0),
         options 
-      })
-
-    } catch (error) {
+      })    } catch (error) {
       console.error('Error performing OCR:', error)
       updateJob(jobId, {
         status: 'failed',

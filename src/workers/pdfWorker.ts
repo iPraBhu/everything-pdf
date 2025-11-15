@@ -1,7 +1,13 @@
 import { expose } from 'comlink'
 import { PDFDocument, rgb, degrees } from 'pdf-lib'
+import * as pdfjsLib from 'pdfjs-dist'
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.js', import.meta.url).href
 
 export interface PDFWorkerAPI {
+  getPageCount: (pdfData: Uint8Array) => Promise<number>
+  renderPageAsImage: (pdfData: Uint8Array, pageIndex: number, options?: { scale?: number; format?: 'png' | 'jpeg' }) => Promise<ImageData>
   mergePDFs: (pdfDatas: Uint8Array[]) => Promise<Uint8Array>
   splitPDF: (pdfData: Uint8Array, splitPoints: number[]) => Promise<Uint8Array[]>
   extractPages: (pdfData: Uint8Array, pageIndices: number[]) => Promise<Uint8Array>
@@ -23,6 +29,75 @@ export interface PDFWorkerAPI {
 }
 
 class PDFWorker implements PDFWorkerAPI {
+  async getPageCount(pdfData: Uint8Array): Promise<number> {
+    try {
+      const pdfDoc = await PDFDocument.load(pdfData)
+      return pdfDoc.getPageCount()
+    } catch (error) {
+      console.error('Error getting page count:', error)
+      throw new Error('Failed to get page count from PDF')
+    }
+  }
+
+  async renderPageAsImage(pdfData: Uint8Array, pageIndex: number, options: { scale?: number; format?: 'png' | 'jpeg' } = {}): Promise<ImageData> {
+    const { scale = 2.0 } = options
+    
+    try {
+      // Load PDF with PDF.js for rendering
+      const loadingTask = pdfjsLib.getDocument({ data: pdfData })
+      const pdfDocument = await loadingTask.promise
+      
+      // Get the specific page
+      const page = await pdfDocument.getPage(pageIndex + 1) // PDF.js uses 1-based indexing
+      
+      // Get page dimensions
+      const viewport = page.getViewport({ scale })
+      
+      // Create canvas for rendering
+      const canvas = new OffscreenCanvas(viewport.width, viewport.height)
+      const context = canvas.getContext('2d')!
+      
+      // Render page to canvas
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      }
+      
+      await page.render(renderContext).promise
+      
+      // Get ImageData from canvas
+      const imageData = context.getImageData(0, 0, viewport.width, viewport.height)
+      
+      // Clean up
+      page.cleanup()
+      pdfDocument.destroy()
+      
+      return imageData
+      
+    } catch (error) {
+      console.error('Error rendering PDF page as image:', error)
+      
+      // Fallback: create a simple white canvas with error text
+      const width = Math.floor(595 * scale) // A4 width in points * scale
+      const height = Math.floor(842 * scale) // A4 height in points * scale
+      
+      const canvas = new OffscreenCanvas(width, height)
+      const ctx = canvas.getContext('2d')!
+      
+      // Fill with white background
+      ctx.fillStyle = 'white'
+      ctx.fillRect(0, 0, width, height)
+      
+      // Add error message
+      ctx.fillStyle = 'black'
+      ctx.font = `${Math.floor(16 * scale)}px Arial`
+      ctx.fillText('Page rendering failed', 50, 50)
+      ctx.fillText(`Page ${pageIndex + 1}`, 50, 80)
+      
+      return ctx.getImageData(0, 0, width, height)
+    }
+  }
+
   async mergePDFs(pdfDatas: Uint8Array[]): Promise<Uint8Array> {
     const mergedPdf = await PDFDocument.create()
     

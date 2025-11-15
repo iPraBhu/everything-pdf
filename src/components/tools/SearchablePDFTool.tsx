@@ -191,29 +191,63 @@ const SearchablePDFTool: React.FC = () => {
         const pageNumber = pageIndex + 1
         updateJob(jobId, { progress: (pageNumber / selectedFile.pageCount) * 80 })
 
-        // Simulate OCR and text layer creation
-        const hasExistingText = Math.random() > 0.3 // 70% chance of needing OCR
-        const ocrConfidence = hasExistingText ? 100 : 75 + Math.random() * 20
-        const pageWords = Math.floor(50 + Math.random() * 200)
-        const pageSearchableWords = Math.floor(pageWords * (ocrConfidence / 100))
+        try {
+          // Render PDF page as image for OCR
+          const imageData = await workerManager.renderPageAsImage(
+            selectedFile.data,
+            pageIndex,
+            { scale: 2.0 } // High resolution for better OCR
+          )
+          
+          // Perform OCR to get text layer data
+          const ocrResult = await workerManager.performOCR(imageData, {
+            language: options.language.join('+')
+          })
+          
+          // Update progress after OCR completion
+          updateJob(jobId, { 
+            progress: (pageNumber / selectedFile.pageCount) * 85
+          })
+          
+          const hasExistingText = ocrResult.confidence > 90 // High confidence indicates good OCR
+          const ocrConfidence = ocrResult.confidence
+          const pageWords = (ocrResult.text.match(/\b\w+\b/g) || []).length
+          const pageSearchableWords = Math.floor(pageWords * (ocrConfidence / 100))
 
-        const result: SearchableResult = {
-          pageNumber,
-          hasExistingText,
-          ocrConfidence,
-          textAdded: !hasExistingText,
-          searchableWords: pageSearchableWords,
-          errors: ocrConfidence < 70 ? [`Low confidence on page ${pageNumber}`] : undefined
+          const result: SearchableResult = {
+            pageNumber,
+            hasExistingText,
+            ocrConfidence,
+            textAdded: !hasExistingText,
+            searchableWords: pageSearchableWords,
+            errors: ocrConfidence < 70 ? [`Low confidence on page ${pageNumber}`] : undefined
+          }
+
+          pageResults.push(result)
+          totalWords += pageWords
+          searchableWords += pageSearchableWords
+          totalConfidence += ocrConfidence
+          processedPages++
+          
+        } catch (ocrError) {
+          console.error(`OCR error on page ${pageNumber}:`, ocrError)
+          
+          // Add error result
+          const errorResult: SearchableResult = {
+            pageNumber,
+            hasExistingText: false,
+            ocrConfidence: 0,
+            textAdded: false,
+            searchableWords: 0,
+            errors: [`OCR failed: ${ocrError instanceof Error ? ocrError.message : 'Unknown error'}`]
+          }
+          
+          pageResults.push(errorResult)
+          processedPages++
         }
 
-        pageResults.push(result)
-        totalWords += pageWords
-        searchableWords += pageSearchableWords
-        totalConfidence += ocrConfidence
-        processedPages++
-
-        // Small delay to simulate processing
-        await new Promise(resolve => setTimeout(resolve, 200))
+        // Small delay to prevent overwhelming the system
+        await new Promise(resolve => setTimeout(resolve, 100))
       }
 
       setResults(pageResults)
@@ -263,7 +297,7 @@ const SearchablePDFTool: React.FC = () => {
       })
 
       setActiveTab('results')
-      console.log('Searchable PDF creation completed (simulated)', { 
+      console.log('Searchable PDF creation completed', { 
         pages: pageResults.length,
         searchInfo: finalSearchInfo,
         options 

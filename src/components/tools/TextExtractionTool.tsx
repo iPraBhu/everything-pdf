@@ -288,48 +288,67 @@ const TextExtractionTool: React.FC = () => {
         
         updateJob(jobId, { progress: (i / pagesToProcess.length) * 80 })
 
-        // TODO: Implement actual text extraction in workerManager
-        // For now, we'll simulate text extraction
-        console.warn('Text extraction not yet implemented in workerManager')
-        
-        // Simulate text extraction
-        const mockText = `This is extracted text from page ${pageNumber} of the PDF document.
-
-The text extraction process would normally:
-- Parse PDF text objects
-- Handle different fonts and encodings
-- Preserve formatting based on options
-- Extract text from tables and columns
-- Handle headers and footers as specified
-
-Sample content for page ${pageNumber}:
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
-
-This would be the actual extracted text content with proper formatting, spacing, and structure preservation based on the selected options.`
-
-        const cleanedText = applyCleanupOptions(mockText)
-        const wordCount = (cleanedText.match(/\b\w+\b/g) || []).length
-        const characterCount = cleanedText.length
-
-        const result: ExtractedText = {
-          pageNumber,
-          content: cleanedText,
-          wordCount,
-          characterCount,
-          confidence: 95 + Math.random() * 5,
-          metadata: {
-            fontSize: [12, 14, 16],
-            fontNames: ['Times New Roman', 'Arial'],
-            hasImages: Math.random() > 0.5,
-            hasHeaders: options.includeHeaders && Math.random() > 0.3,
-            hasFooters: options.includeFooters && Math.random() > 0.3
+        try {
+          // Render PDF page as image for OCR
+          const imageData = await workerManager.renderPageAsImage(
+            selectedFile.data,
+            pageIndex,
+            { scale: options.textFiltering.minWordLength > 3 ? 2.5 : 2.0 } // Higher resolution for better accuracy
+          )
+          
+          // Perform OCR to extract text
+          const ocrResult = await workerManager.performOCR(imageData, {
+            language: 'eng' // Default to English, could be configurable
+          })
+          
+          // Update progress after OCR completion
+          updateJob(jobId, { 
+            progress: (i / pagesToProcess.length) * 85
+          })
+          
+          // Apply cleanup options to the extracted text
+          const cleanedText = applyCleanupOptions(ocrResult.text)
+          const wordCount = (cleanedText.match(/\b\w+\b/g) || []).length
+          const characterCount = cleanedText.length
+          
+          const result: ExtractedText = {
+            pageNumber,
+            content: cleanedText,
+            wordCount,
+            characterCount,
+            confidence: ocrResult.confidence,
+            metadata: {
+              fontSize: [12, 14], // Would be extracted from PDF in full implementation
+              fontNames: ['Unknown'], // Would be extracted from PDF
+              hasImages: false, // Would be detected from PDF
+              hasHeaders: options.includeHeaders && pageNumber === 1,
+              hasFooters: options.includeFooters && pageNumber === selectedFile.pageCount
+            }
           }
+          
+          results.push(result)
+          
+        } catch (ocrError) {
+          console.error(`Text extraction error on page ${pageNumber}:`, ocrError)
+          
+          // Fallback result for failed OCR
+          const errorResult: ExtractedText = {
+            pageNumber,
+            content: `Text extraction failed for page ${pageNumber}. Error: ${ocrError instanceof Error ? ocrError.message : 'Unknown error'}`,
+            wordCount: 0,
+            characterCount: 0,
+            confidence: 0,
+            metadata: {
+              fontSize: [],
+              fontNames: [],
+              hasImages: false,
+              hasHeaders: false,
+              hasFooters: false
+            }
+          }
+          
+          results.push(errorResult)
         }
-
-        results.push(result)
-        
-        // Small delay to simulate processing
-        await new Promise(resolve => setTimeout(resolve, 200))
       }
 
       setExtractedText(results)
@@ -385,9 +404,10 @@ This would be the actual extracted text content with proper formatting, spacing,
       })
 
       setActiveTab('results')
-      console.log('Text extraction completed (simulated)', { 
+      console.log('Text extraction completed', { 
         pages: results.length,
         totalWords: results.reduce((sum, r) => sum + r.wordCount, 0),
+        avgConfidence: results.reduce((sum, r) => sum + r.confidence, 0) / results.length,
         options 
       })
 

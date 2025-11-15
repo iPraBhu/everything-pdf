@@ -122,6 +122,16 @@ class WorkerManager {
   }
 
   // Convenience methods for common operations
+  async getPageCount(pdfData: Uint8Array): Promise<number> {
+    const worker = await this.getPDFWorker()
+    return worker.getPageCount(pdfData)
+  }
+
+  async renderPageAsImage(pdfData: Uint8Array, pageIndex: number, options?: { scale?: number; format?: 'png' | 'jpeg' }): Promise<ImageData> {
+    const worker = await this.getPDFWorker()
+    return worker.renderPageAsImage(pdfData, pageIndex, options)
+  }
+
   async mergePDFs(pdfDatas: Uint8Array[]): Promise<Uint8Array> {
     const worker = await this.getPDFWorker()
     return worker.mergePDFs(pdfDatas)
@@ -174,7 +184,6 @@ class WorkerManager {
     imageData: ImageData, 
     options: { 
       language?: string
-      progressCallback?: (progress: { status: string; progress: number }) => void 
     } = {}
   ): Promise<any> {
     const worker = await this.getOCRWorker()
