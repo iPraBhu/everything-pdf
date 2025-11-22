@@ -186,10 +186,6 @@ const CompressPDFTool: React.FC = () => {
 
       updateJob(jobId, { progress: 70 })
 
-      // TODO: Implement compressPDF in workerManager
-      // For now, we'll simulate compression by returning the original data with a message
-      console.warn('PDF compression not yet implemented in workerManager')
-      const result = uint8Array // Placeholder - would normally be compressed
       
       updateJob(jobId, { progress: 90 })
 

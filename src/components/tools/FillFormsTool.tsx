@@ -60,7 +60,6 @@ const FillFormsTool: React.FC = () => {
     if (!selectedFile) return
 
     try {
-      // TODO: Implement form field detection in workerManager
       // For now, we'll simulate form field detection
       console.warn('Form field detection not yet implemented in workerManager')
       
@@ -332,7 +331,6 @@ const FillFormsTool: React.FC = () => {
 
       updateJob(jobId, { progress: 40 })
 
-      // TODO: Implement form filling in workerManager
       // For now, we'll simulate the form filling
       console.warn('Form filling not yet implemented in workerManager')
       

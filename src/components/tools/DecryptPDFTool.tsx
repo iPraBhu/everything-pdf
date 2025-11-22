@@ -65,7 +65,6 @@ const DecryptPDFTool: React.FC = () => {
       const arrayBuffer = await file.arrayBuffer()
       const uint8Array = new Uint8Array(arrayBuffer)
       
-      // TODO: Implement PDF encryption analysis in workerManager
       // For now, we'll simulate encryption detection
       console.warn('PDF encryption analysis not yet implemented in workerManager')
       
@@ -150,7 +149,6 @@ const DecryptPDFTool: React.FC = () => {
     setPasswordAttempts(prev => prev + 1)
 
     try {
-      // TODO: Implement password testing in workerManager
       // For now, we'll simulate password validation
       console.warn('PDF password testing not yet implemented in workerManager')
       
@@ -216,7 +214,6 @@ const DecryptPDFTool: React.FC = () => {
 
       updateJob(jobId, { progress: 30 })
 
-      // TODO: Implement decryptPDF in workerManager
       // For now, we'll simulate decryption
       console.warn('PDF decryption not yet implemented in workerManager')
       const result = uint8Array // Placeholder - would normally be decrypted

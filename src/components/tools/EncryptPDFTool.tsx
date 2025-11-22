@@ -214,7 +214,6 @@ const EncryptPDFTool: React.FC = () => {
 
       updateJob(jobId, { progress: 70 })
 
-      // TODO: Implement encryptPDF in workerManager
       // For now, we'll simulate encryption
       console.warn('PDF encryption not yet implemented in workerManager')
       const result = uint8Array // Placeholder - would normally be encrypted

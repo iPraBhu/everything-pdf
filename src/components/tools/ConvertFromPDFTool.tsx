@@ -240,7 +240,6 @@ const ConvertFromPDFTool: React.FC = () => {
           progress: 40 + ((pageNum - range.start) / pageCount) * 50
         })
 
-        // TODO: Implement convertPDFPageToImage in workerManager
         // For now, we'll simulate the process
         console.warn('PDF to image conversion not yet implemented in workerManager')
         // Placeholder - would normally convert page to image

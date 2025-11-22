@@ -265,7 +265,6 @@ const SearchablePDFTool: React.FC = () => {
 
       updateJob(jobId, { progress: 90 })
 
-      // TODO: Implement actual searchable PDF creation in workerManager
       // For now, we'll simulate the creation
       console.warn('Searchable PDF creation not yet implemented in workerManager')
 

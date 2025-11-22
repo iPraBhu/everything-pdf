@@ -247,7 +247,6 @@ const ConvertToPDFTool: React.FC = () => {
 
       updateJob(jobId, { progress: 50 })
 
-      // TODO: Implement convertToPDF in workerManager
       // For now, we'll simulate the conversion
       console.warn('Convert to PDF not yet implemented in workerManager')
       

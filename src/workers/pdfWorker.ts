@@ -26,6 +26,14 @@ export interface PDFWorkerAPI {
   flattenForms: (pdfData: Uint8Array) => Promise<Uint8Array>
   removeAnnotations: (pdfData: Uint8Array) => Promise<Uint8Array>
   sanitizePDF: (pdfData: Uint8Array, options: any) => Promise<Uint8Array>
+    analyzeEncryption: (pdfData: Uint8Array) => Promise<any>
+  testPassword: (pdfData: Uint8Array, password: string) => Promise<boolean>
+  detectFormFields: (pdfData: Uint8Array) => Promise<any[]>
+  fillForms: (pdfData: Uint8Array, formData: Record<string, any>) => Promise<Uint8Array>
+  convertToGrayscale: (pdfData: Uint8Array) => Promise<Uint8Array>
+  convertImageToPDF: (imageData: Uint8Array, options: any) => Promise<Uint8Array>
+  convertPDFPageToImage: (pdfData: Uint8Array, pageIndex: number, format: 'png' | 'jpeg' | 'webp') => Promise<Uint8Array>
+  createSearchablePDF: (pdfData: Uint8Array, options: any) => Promise<Uint8Array>
 }
 
 class PDFWorker implements PDFWorkerAPI {

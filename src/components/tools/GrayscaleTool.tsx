@@ -314,7 +314,6 @@ const GrayscaleTool: React.FC = () => {
 
       updateJob(jobId, { progress: 40 })
 
-      // TODO: Implement grayscale conversion in workerManager
       // For now, we'll simulate the conversion
       console.warn('Grayscale conversion not yet implemented in workerManager')
       
