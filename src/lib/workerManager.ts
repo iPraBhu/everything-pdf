@@ -46,20 +46,71 @@ class WorkerManager {
   }
 
   async submitJob(jobConfig: any): Promise<any> {
-    // This is a simplified implementation for compatibility
     const { type } = jobConfig
-    
+    const pdfWorker = await this.getPDFWorker()
+
     switch (type) {
       case 'merge':
       case 'enhanced-merge':
-        const pdfWorker = await this.getPDFWorker()
         return await pdfWorker.mergePDFs(jobConfig.files)
-      
+
       case 'split':
       case 'smart-split':
-        const splitWorker = await this.getPDFWorker()
-        return await splitWorker.splitPDF(jobConfig.file, jobConfig.options)
-        
+        return await pdfWorker.splitPDF(jobConfig.file, jobConfig.options)
+
+      case 'compress':
+        return await pdfWorker.compressPDF(jobConfig.file, jobConfig.options)
+
+      case 'encrypt':
+        return await pdfWorker.encryptPDF(
+          jobConfig.file,
+          jobConfig.userPassword,
+          jobConfig.ownerPassword,
+          jobConfig.permissions
+        )
+
+      case 'decrypt':
+        return await pdfWorker.decryptPDF(jobConfig.file, jobConfig.password)
+
+      case 'rotate':
+        return await pdfWorker.rotatePages(jobConfig.file, jobConfig.rotations)
+
+      case 'watermark':
+        return await pdfWorker.addWatermark(jobConfig.file, jobConfig.text, jobConfig.options)
+
+      case 'page-numbers':
+        return await pdfWorker.addPageNumbers(jobConfig.file, jobConfig.options)
+
+      case 'headers-footers':
+        return await pdfWorker.addHeadersFooters(jobConfig.file, jobConfig.options)
+
+      case 'crop':
+        return await pdfWorker.cropPages(jobConfig.file, jobConfig.cropBoxes)
+
+      case 'n-up':
+        return await pdfWorker.nUpLayout(jobConfig.files, jobConfig.options)
+
+      case 'posterize':
+        return await pdfWorker.posterize(jobConfig.file, jobConfig.options)
+
+      case 'interleave':
+        return await pdfWorker.interleavePages(jobConfig.files, jobConfig.options)
+
+      case 'grayscale':
+        return await pdfWorker.convertToGrayscale(jobConfig.file)
+
+      case 'extract-pages':
+        return await pdfWorker.extractPages(jobConfig.file, jobConfig.pageIndices)
+
+      case 'reorder-pages':
+        return await pdfWorker.extractPages(jobConfig.file, jobConfig.pageIndices)
+
+      case 'fill-forms':
+        return await pdfWorker.fillForms(jobConfig.file, jobConfig.formData)
+
+      case 'searchable-pdf':
+        return await this.createSearchablePDF(jobConfig.file, jobConfig.options)
+
       default:
         throw new Error(`Unsupported job type: ${type}`)
     }
@@ -106,7 +157,7 @@ class WorkerManager {
       await this.ocrWorker.terminate()
       this.ocrWorker = null
     }
-    
+
     if (this.ocrWorkerInstance) {
       this.ocrWorkerInstance.terminate()
       this.ocrWorkerInstance = null
@@ -148,7 +199,7 @@ class WorkerManager {
   }
 
   async rotatePages(
-    pdfData: Uint8Array, 
+    pdfData: Uint8Array,
     rotations: Array<{ pageIndex: number; degrees: number }>
   ): Promise<Uint8Array> {
     const worker = await this.getPDFWorker()
@@ -181,8 +232,8 @@ class WorkerManager {
   }
 
   async performOCR(
-    imageData: ImageData, 
-    options: { 
+    imageData: ImageData,
+    options: {
       language?: string
     } = {}
   ): Promise<any> {
@@ -201,8 +252,8 @@ class WorkerManager {
   }
 
   async compressImage(
-    imageData: ImageData, 
-    quality: number, 
+    imageData: ImageData,
+    quality: number,
     format: 'jpeg' | 'png' | 'webp'
   ): Promise<Uint8Array> {
     const worker = await this.getImageWorker()
@@ -250,8 +301,24 @@ class WorkerManager {
   }
 
   async createSearchablePDF(pdfData: Uint8Array, options: any = {}): Promise<Uint8Array> {
-    const worker = await this.getPDFWorker()
-    return worker.createSearchablePDF(pdfData, options)
+    const pdfWorker = await this.getPDFWorker()
+    const ocrWorker = await this.getOCRWorker()
+
+    const pageCount = await pdfWorker.getPageCount(pdfData)
+    const pagesOcrData = []
+    const scale = 2.0 // Use high quality for OCR
+
+    for (let i = 0; i < pageCount; i++) {
+      const imageData = await pdfWorker.renderPageAsImage(pdfData, i, { scale })
+
+      const ocrResult = await ocrWorker.performOCR(imageData, {
+        language: options.language || 'eng'
+      })
+
+      pagesOcrData.push(ocrResult)
+    }
+
+    return await pdfWorker.addInvisibleText(pdfData, pagesOcrData, scale)
   }
 
   async compressPDF(pdfData: Uint8Array, options: any = {}): Promise<Uint8Array> {

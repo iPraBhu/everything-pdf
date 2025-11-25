@@ -1,144 +1,90 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { 
-  Eye, 
-  Edit, 
-  Layout, 
-  RefreshCw, 
-  FileText, 
-  Shield, 
-  Zap, 
-  Scan,
-  Settings,
-  Merge,
-  SplitSquareHorizontal,
-  FileDown,
-  RotateCw,
-  Crop,
-  Hash,
-  Type,
-  Grid3x3,
-  Layers,
-  Droplets,
-  Palette,
-  BookOpen,
-  CheckSquare,
-  MessageSquare,
-  FileX,
-  Image,
-  Minimize,
-  Wrench,
-  Lock,
-  Unlock,
-  ShieldCheck,
-  PenTool,
-  EyeOff,
-  Trash,
-  Info,
-  ArrowLeft,
-  Search
+import {
+  Eye, Edit, Layout, RefreshCw, FileText, Shield, Zap, Scan, Settings,
+  Merge, SplitSquareHorizontal, FileDown, RotateCw, Crop, Hash, Type,
+  Grid3x3, Layers, Droplets, Palette, BookOpen, CheckSquare, MessageSquare,
+  FileX, Image, Minimize, Wrench, Lock, Unlock, ShieldCheck, PenTool,
+  EyeOff, Trash, ArrowLeft, Search
 } from 'lucide-react'
-import EnhancedMergeTool from '../components/tools/EnhancedMergeTool'
-import SplitTool from '../components/tools/SplitTool'
-import WatermarkTool from '../components/tools/WatermarkTool'
-import NUpTool from '../components/tools/NUpTool'
-import PosterizeTool from '../components/tools/PosterizeTool'
-import InterleaveTool from '../components/tools/InterleaveTool'
-import SmartSplitterTool from '../components/tools/SmartSplitterTool'
-import AdvancedWatermarkTool from '../components/tools/AdvancedWatermarkTool'
-import ProfessionalPageNumbersTool from '../components/tools/ProfessionalPageNumbersTool'
 
-import AdvancedPageExtractionTool from '../components/tools/AdvancedPageExtractionTool'
-import NUpLayoutTool from '../components/tools/NUpLayoutTool'
-
-import DisabledToolStub from '../components/tools/DisabledToolStub'
-import DocumentMetadataEditor from '../components/tools/DocumentMetadataEditor'
-import PDFCompressionTool from '../components/tools/PDFCompressionTool'
-import PDFSecurityTool from '../components/tools/PDFSecurityTool'
-import ExtractPagesTool from '../components/tools/ExtractPagesTool'
-import RotatePagesTool from '../components/tools/RotatePagesTool'
-import PageNumbersTool from '../components/tools/PageNumbersTool'
-import CompressPDFTool from '../components/tools/CompressPDFTool'
-import ConvertFromPDFTool from '../components/tools/ConvertFromPDFTool'
-import EncryptPDFTool from '../components/tools/EncryptPDFTool'
-import DecryptPDFTool from '../components/tools/DecryptPDFTool'
-import ViewPDFTool from '../components/tools/ViewPDFTool'
-import ReorderPagesTool from '../components/tools/ReorderPagesTool'
-import CropPagesTool from '../components/tools/CropPagesTool'
-import HeadersFootersTool from '../components/tools/HeadersFootersTool'
-import ConvertToPDFTool from '../components/tools/ConvertToPDFTool'
-import GrayscaleTool from '../components/tools/GrayscaleTool'
-import FillFormsTool from '../components/tools/FillFormsTool'
-import OCRTool from '../components/tools/OCRTool'
-import SearchablePDFTool from '../components/tools/SearchablePDFTool'
-import TextExtractionTool from '../components/tools/TextExtractionTool'
+// Import Tool Components
+import { ViewPDFTool } from '../components/tools/ViewPDFTool'
+import { EnhancedMergeTool } from '../components/tools/EnhancedMergeTool'
+import { SplitTool } from '../components/tools/SplitTool'
+import { SmartSplitterTool } from '../components/tools/SmartSplitterTool'
+import { RotatePagesTool } from '../components/tools/RotatePagesTool'
+import { CropPagesTool } from '../components/tools/CropPagesTool'
+import { ReorderPagesTool } from '../components/tools/ReorderPagesTool'
+import { ExtractPagesTool } from '../components/tools/ExtractPagesTool'
+import { AdvancedPageExtractionTool } from '../components/tools/AdvancedPageExtractionTool'
+import { ConvertToPDFTool } from '../components/tools/ConvertToPDFTool'
+import { ConvertFromPDFTool } from '../components/tools/ConvertFromPDFTool'
+import { PDFCompressionTool } from '../components/tools/PDFCompressionTool'
+import { GrayscaleTool } from '../components/tools/GrayscaleTool'
+import { PosterizeTool } from '../components/tools/PosterizeTool'
+import { EncryptPDFTool } from '../components/tools/EncryptPDFTool'
+import { DecryptPDFTool } from '../components/tools/DecryptPDFTool'
+import { PDFSecurityTool } from '../components/tools/PDFSecurityTool'
+import { DocumentMetadataEditor } from '../components/tools/DocumentMetadataEditor'
+import { FillFormsTool } from '../components/tools/FillFormsTool'
+import { ProfessionalPageNumbersTool } from '../components/tools/ProfessionalPageNumbersTool'
+import { HeadersFootersTool } from '../components/tools/HeadersFootersTool'
+import { AdvancedWatermarkTool } from '../components/tools/AdvancedWatermarkTool'
+import { NUpLayoutTool } from '../components/tools/NUpLayoutTool'
+import { InterleaveTool } from '../components/tools/InterleaveTool'
+import { OCRTool } from '../components/tools/OCRTool'
+import { SearchablePDFTool } from '../components/tools/SearchablePDFTool'
+import { TextExtractionTool } from '../components/tools/TextExtractionTool'
 
 interface Tool {
   id: string
   name: string
   description: string
-  icon: React.ComponentType<any>
+  icon: any
   category: string
+  component?: any
   comingSoon?: boolean
-  component?: React.ComponentType
 }
 
 const tools: Tool[] = [
   // Viewer & Organize
-  { id: 'view', name: 'View PDF', description: 'Open and view PDF files', icon: Eye, category: 'viewer', component: ViewPDFTool },
-  { id: 'merge', name: 'Merge PDFs', description: 'Combine multiple PDF files into one', icon: Merge, category: 'viewer', component: EnhancedMergeTool },
-  { id: 'enhanced-merge', name: 'Enhanced Merge', description: 'Advanced merge with compression and optimization', icon: Layers, category: 'viewer', component: EnhancedMergeTool },
+  { id: 'view', name: 'View PDF', description: 'View and navigate PDF documents', icon: Eye, category: 'viewer', component: ViewPDFTool },
+  { id: 'merge', name: 'Merge PDFs', description: 'Combine multiple PDFs into one', icon: Merge, category: 'viewer', component: EnhancedMergeTool },
   { id: 'split', name: 'Split PDF', description: 'Split PDF into multiple files', icon: SplitSquareHorizontal, category: 'viewer', component: SplitTool },
-  { id: 'smart-split', name: 'Smart Splitter', description: 'AI-powered splitting with content analysis', icon: Scan, category: 'viewer', component: SmartSplitterTool },
+  { id: 'smart-split', name: 'Smart Split', description: 'Split by size, bookmarks, or text', icon: SplitSquareHorizontal, category: 'viewer', component: SmartSplitterTool },
+  { id: 'reorder', name: 'Reorder Pages', description: 'Rearrange pages in your PDF', icon: Layers, category: 'viewer', component: ReorderPagesTool },
   { id: 'extract', name: 'Extract Pages', description: 'Extract specific pages', icon: FileDown, category: 'viewer', component: ExtractPagesTool },
-  { id: 'advanced-extract', name: 'Advanced Page Extraction', description: 'Professional page selection with thumbnails and filtering', icon: FileText, category: 'viewer', component: AdvancedPageExtractionTool },
-  { id: 'reorder', name: 'Reorder Pages', description: 'Reorder pages', icon: RefreshCw, category: 'viewer', component: ReorderPagesTool },
-  { id: 'rotate', name: 'Rotate Pages', description: 'Rotate pages', icon: RotateCw, category: 'viewer', component: RotatePagesTool },
+  { id: 'advanced-extract', name: 'Advanced Extract', description: 'Extract pages by criteria', icon: FileDown, category: 'viewer', component: AdvancedPageExtractionTool },
 
   // Edit
-  { id: 'crop', name: 'Crop Pages', description: 'Crop pages', icon: Crop, category: 'edit', component: CropPagesTool },
-  { id: 'page-numbers', name: 'Page Numbers', description: 'Add page numbers', icon: Hash, category: 'edit', component: PageNumbersTool },
-  { id: 'professional-page-numbers', name: 'Professional Page Numbers', description: 'Advanced page numbering with custom formats and positioning', icon: Type, category: 'edit', component: ProfessionalPageNumbersTool },
+  { id: 'rotate', name: 'Rotate Pages', description: 'Rotate pages 90, 180, or 270 degrees', icon: RotateCw, category: 'edit', component: RotatePagesTool },
+  { id: 'crop', name: 'Crop Pages', description: 'Crop pages to specific dimensions', icon: Crop, category: 'edit', component: CropPagesTool },
+  { id: 'page-numbers', name: 'Page Numbers', description: 'Add page numbers to your PDF', icon: Hash, category: 'edit', component: ProfessionalPageNumbersTool },
   { id: 'headers-footers', name: 'Headers & Footers', description: 'Add headers and footers', icon: Type, category: 'edit', component: HeadersFootersTool },
-  { id: 'watermark', name: 'Watermark', description: 'Add watermarks', icon: Droplets, category: 'edit', component: WatermarkTool },
-  { id: 'advanced-watermark', name: 'Advanced Watermark', description: 'Professional watermarking with templates and live preview', icon: Palette, category: 'edit', component: AdvancedWatermarkTool },
-  { id: 'invert', name: 'Invert Colors', description: 'Invert colors', icon: RefreshCw, category: 'edit' },
-  { id: 'background', name: 'Background Color', description: 'Change background color', icon: Palette, category: 'edit' },
-  { id: 'text-color', name: 'Text Color', description: 'Change text color', icon: Palette, category: 'edit' },
-  { id: 'bookmarks', name: 'Bookmarks', description: 'Manage bookmarks', icon: BookOpen, category: 'edit' },
+  { id: 'watermark', name: 'Watermark', description: 'Add text or image watermarks', icon: Droplets, category: 'edit', component: AdvancedWatermarkTool },
 
   // Layout
-  { id: 'nup', name: 'N-Up Layout', description: 'Multiple pages per sheet', icon: Grid3x3, category: 'layout', component: NUpTool },
-  { id: 'nup-layout', name: 'Professional N-Up Layout', description: 'Advanced N-Up layouts with custom spacing and scaling', icon: Layout, category: 'layout', component: NUpLayoutTool },
-  { id: 'poster', name: 'Posterize', description: 'Split large pages into tiles', icon: Layers, category: 'layout', component: PosterizeTool },
-  { id: 'interleave', name: 'Interleave Pages', description: 'Mix pages from multiple documents', icon: Layers, category: 'layout', component: InterleaveTool },
+  { id: 'nup', name: 'N-Up Layout', description: 'Multiple pages per sheet', icon: Grid3x3, category: 'layout', component: NUpLayoutTool },
+  { id: 'interleave', name: 'Interleave', description: 'Interleave pages from multiple PDFs', icon: Layers, category: 'layout', component: InterleaveTool },
+  { id: 'posterize', name: 'Posterize', description: 'Split large pages into tiles', icon: Grid3x3, category: 'layout', component: PosterizeTool },
 
   // Convert
-  { id: 'convert-to', name: 'Convert to PDF', description: 'Convert images/text to PDF', icon: FileText, category: 'convert', component: ConvertToPDFTool },
-  { id: 'convert-from', name: 'PDF to Images', description: 'Convert PDF to images', icon: Image, category: 'convert', component: ConvertFromPDFTool },
-  { id: 'grayscale', name: 'Grayscale', description: 'Convert to grayscale', icon: Palette, category: 'convert', component: GrayscaleTool },
+  { id: 'convert-to-pdf', name: 'Convert to PDF', description: 'Convert images to PDF', icon: Image, category: 'convert', component: ConvertToPDFTool },
+  { id: 'convert-from-pdf', name: 'Convert from PDF', description: 'Convert PDF pages to images', icon: Image, category: 'convert', component: ConvertFromPDFTool },
+  { id: 'grayscale', name: 'Grayscale', description: 'Convert PDF to grayscale', icon: Palette, category: 'convert', component: GrayscaleTool },
 
   // Forms
-  { id: 'fill-forms', name: 'Fill Forms', description: 'Fill forms', icon: CheckSquare, category: 'forms', component: FillFormsTool },
-  { id: 'flatten-forms', name: 'Flatten Forms', description: 'Flatten forms', icon: CheckSquare, category: 'forms' },
-  { id: 'form-designer', name: 'Form Designer', description: 'Create forms', icon: Edit, category: 'forms', comingSoon: true },
+  { id: 'fill-forms', name: 'Fill Forms', description: 'Fill out PDF forms', icon: PenTool, category: 'forms', component: FillFormsTool },
 
   // Security
-  { id: 'encrypt', name: 'Encrypt PDF', description: 'Password protect', icon: Lock, category: 'security', component: EncryptPDFTool },
-  { id: 'decrypt', name: 'Decrypt PDF', description: 'Remove password', icon: Unlock, category: 'security', component: DecryptPDFTool },
-  { id: 'pdf-security', name: 'PDF Security & Encryption', description: 'Advanced security with permissions and vulnerability analysis', icon: ShieldCheck, category: 'security', component: PDFSecurityTool },
-  { id: 'permissions', name: 'Set Permissions', description: 'Set permissions', icon: ShieldCheck, category: 'security' },
-  { id: 'sign', name: 'Digital Signature', description: 'Digital signature', icon: PenTool, category: 'security' },
-  { id: 'redact', name: 'Redact Text', description: 'Redact sensitive information', icon: EyeOff, category: 'security' },
+  { id: 'encrypt', name: 'Encrypt PDF', description: 'Password protect your PDF', icon: Lock, category: 'security', component: EncryptPDFTool },
+  { id: 'decrypt', name: 'Decrypt PDF', description: 'Remove password protection', icon: Unlock, category: 'security', component: DecryptPDFTool },
+  { id: 'security', name: 'Security Permissions', description: 'Manage PDF permissions', icon: ShieldCheck, category: 'security', component: PDFSecurityTool },
+  { id: 'metadata', name: 'Metadata', description: 'Edit PDF metadata', icon: FileText, category: 'security', component: DocumentMetadataEditor },
 
   // Optimize
-  { id: 'compress', name: 'Compress PDF', description: 'Reduce file size', icon: Minimize, category: 'optimize', component: CompressPDFTool },
-  { id: 'pdf-compression', name: 'Advanced PDF Compression', description: 'Professional compression with quality presets and analysis', icon: Zap, category: 'optimize', component: PDFCompressionTool },
-  { id: 'repair', name: 'Repair PDF', description: 'Repair damaged PDFs', icon: Wrench, category: 'optimize' },
-  { id: 'sanitize', name: 'Sanitize PDF', description: 'Remove metadata and scripts', icon: Trash, category: 'optimize' },
-  { id: 'metadata', name: 'Edit Metadata', description: 'Edit document information', icon: Info, category: 'optimize' },
-  { id: 'metadata-editor', name: 'Document Metadata Editor', description: 'Comprehensive metadata editing with templates and custom fields', icon: Settings, category: 'optimize', component: DocumentMetadataEditor },
-  { id: 'linearize', name: 'Linearize PDF', description: 'Optimize for web viewing', icon: Zap, category: 'optimize' },
+  { id: 'compress', name: 'Compress PDF', description: 'Reduce PDF file size', icon: Minimize, category: 'optimize', component: PDFCompressionTool },
 
   // OCR
   { id: 'ocr', name: 'OCR Text Recognition', description: 'Extract text with optical character recognition', icon: Scan, category: 'ocr', component: OCRTool },
@@ -146,10 +92,10 @@ const tools: Tool[] = [
   { id: 'text-extraction', name: 'Text Extraction', description: 'Extract and analyze text content from PDFs', icon: FileText, category: 'ocr', component: TextExtractionTool },
 
   // Advanced
-  { id: 'annotations', name: 'Remove Annotations', description: 'Remove annotations', icon: MessageSquare, category: 'advanced' },
-  { id: 'remove-blank', name: 'Remove Blank Pages', description: 'Remove blank pages', icon: FileX, category: 'advanced' },
-  { id: 'batch', name: 'Batch Operations', description: 'Process multiple files', icon: Layers, category: 'advanced' },
-  { id: 'project', name: 'Project Snapshots', description: 'Save/load project state', icon: Settings, category: 'advanced' }
+  { id: 'annotations', name: 'Remove Annotations', description: 'Remove annotations', icon: MessageSquare, category: 'advanced', comingSoon: true },
+  { id: 'remove-blank', name: 'Remove Blank Pages', description: 'Remove blank pages', icon: FileX, category: 'advanced', comingSoon: true },
+  { id: 'batch', name: 'Batch Operations', description: 'Process multiple files', icon: Layers, category: 'advanced', comingSoon: true },
+  { id: 'project', name: 'Project Snapshots', description: 'Save/load project state', icon: Settings, category: 'advanced', comingSoon: true }
 ]
 
 const categories = [
@@ -173,7 +119,7 @@ export function Tools() {
   const filteredTools = tools.filter(tool => {
     const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory
     const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         tool.description.toLowerCase().includes(searchQuery.toLowerCase())
+      tool.description.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesCategory && matchesSearch
   })
 
@@ -212,7 +158,7 @@ export function Tools() {
               </span>
             </nav>
           </div>
-          
+
           {/* Tool Component */}
           <div className="flex-1 overflow-auto">
             <ToolComponent />
@@ -255,11 +201,10 @@ export function Tools() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedCategory('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              selectedCategory === 'all'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === 'all'
+              ? 'bg-primary-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
           >
             All Tools
           </button>
@@ -269,11 +214,10 @@ export function Tools() {
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCategory === category.id
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === category.id
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
               >
                 <Icon className="h-4 w-4" />
                 <span>{category.name}</span>
@@ -289,44 +233,42 @@ export function Tools() {
           const Icon = tool.icon
           const category = categories.find(c => c.id === tool.category)
           const isAvailable = !!tool.component && !tool.comingSoon
-          
+
           return (
             <button
               key={tool.id}
               onClick={() => handleToolClick(tool)}
               disabled={!isAvailable}
-              className={`card p-6 text-left transition-all hover:shadow-lg group relative ${
-                !isAvailable 
-                  ? 'opacity-60 cursor-not-allowed' 
-                  : 'hover:scale-105 cursor-pointer'
-              }`}
+              className={`card p-6 text-left transition-all hover:shadow-lg group relative ${!isAvailable
+                ? 'opacity-60 cursor-not-allowed'
+                : 'hover:scale-105 cursor-pointer'
+                }`}
             >
               {tool.comingSoon && (
                 <div className="absolute top-2 right-2 px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-medium rounded">
                   Soon
                 </div>
               )}
-              
+
               {!tool.comingSoon && !tool.component && (
                 <div className="absolute top-2 right-2 px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded">
                   Planned
                 </div>
               )}
-              
+
               <div className={`w-12 h-12 ${category?.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                 <Icon className="h-6 w-6 text-white" />
               </div>
-              
-              <h3 className={`font-semibold text-gray-900 dark:text-white mb-2 transition-colors ${
-                isAvailable ? 'group-hover:text-primary-600 dark:group-hover:text-primary-400' : ''
-              }`}>
+
+              <h3 className={`font-semibold text-gray-900 dark:text-white mb-2 transition-colors ${isAvailable ? 'group-hover:text-primary-600 dark:group-hover:text-primary-400' : ''
+                }`}>
                 {tool.name}
               </h3>
-              
+
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {tool.description}
               </p>
-              
+
               <div className="flex items-center justify-between mt-4">
                 <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                   {tool.category}

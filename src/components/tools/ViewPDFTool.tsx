@@ -54,7 +54,7 @@ const ViewPDFTool: React.FC = () => {
       const uint8Array = new Uint8Array(arrayBuffer)
       const { loadPDFDocument } = await import('../../lib/pdf')
       const doc = await loadPDFDocument(uint8Array)
-      
+
       setPdfDocument(doc)
       setViewerState(prev => ({
         ...prev,
@@ -64,7 +64,7 @@ const ViewPDFTool: React.FC = () => {
 
       // Generate thumbnails for first few pages
       await generateThumbnails(doc)
-      
+
       // Render first page
       await renderPage(doc, 1)
 
@@ -81,7 +81,7 @@ const ViewPDFTool: React.FC = () => {
       const { getPageThumbnail } = await import('../../lib/pdf')
       const thumbs: string[] = []
       const maxThumbs = Math.min(doc.numPages, 20) // Limit to first 20 pages for performance
-      
+
       for (let i = 1; i <= maxThumbs; i++) {
         try {
           const page = await doc.getPage(i)
@@ -98,7 +98,7 @@ const ViewPDFTool: React.FC = () => {
     }
   }
 
-  const renderPage = async (doc: any, pageNumber: number) => {
+    const renderPage = async (doc: any, pageNumber: number) => {
     if (!doc || !canvasRef.current) return
 
     try {
@@ -134,7 +134,7 @@ const ViewPDFTool: React.FC = () => {
       context.clearRect(0, 0, canvas.width, canvas.height)
 
       // Render page
-      const renderContext = {
+      const renderContext: any = {
         canvasContext: context,
         viewport: scaledViewport
       }
@@ -158,7 +158,7 @@ const ViewPDFTool: React.FC = () => {
   const handleZoomChange = async (newZoom: number) => {
     const clampedZoom = Math.max(25, Math.min(500, newZoom))
     setViewerState(prev => ({ ...prev, zoom: clampedZoom, fitMode: 'auto' }))
-    
+
     if (pdfDocument) {
       await renderPage(pdfDocument, viewerState.currentPage)
     }
@@ -167,7 +167,7 @@ const ViewPDFTool: React.FC = () => {
   const handleRotation = async () => {
     const newRotation = (viewerState.rotation + 90) % 360
     setViewerState(prev => ({ ...prev, rotation: newRotation }))
-    
+
     if (pdfDocument) {
       await renderPage(pdfDocument, viewerState.currentPage)
     }
@@ -175,7 +175,7 @@ const ViewPDFTool: React.FC = () => {
 
   const handleFitModeChange = async (newFitMode: 'width' | 'height' | 'page' | 'auto') => {
     setViewerState(prev => ({ ...prev, fitMode: newFitMode }))
-    
+
     if (pdfDocument) {
       await renderPage(pdfDocument, viewerState.currentPage)
     }
@@ -294,28 +294,26 @@ const ViewPDFTool: React.FC = () => {
               <p className="text-sm text-gray-500 dark:text-gray-400">Open and view PDF documents with navigation and zoom</p>
             </div>
           </div>
-          
+
           {selectedFile && (
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setViewerState(prev => ({ ...prev, showThumbnails: !prev.showThumbnails }))}
-                className={`p-2 rounded-lg transition-colors ${
-                  viewerState.showThumbnails 
-                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
+                className={`p-2 rounded-lg transition-colors ${viewerState.showThumbnails
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                }`}
+                  }`}
                 title="Toggle thumbnails"
               >
                 <Layers className="w-4 h-4" />
               </button>
-              
+
               <button
                 onClick={() => setViewerState(prev => ({ ...prev, showInfo: !prev.showInfo }))}
-                className={`p-2 rounded-lg transition-colors ${
-                  viewerState.showInfo 
-                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
+                className={`p-2 rounded-lg transition-colors ${viewerState.showInfo
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                }`}
+                  }`}
                 title="Document info"
               >
                 <Info className="w-4 h-4" />
@@ -343,15 +341,14 @@ const ViewPDFTool: React.FC = () => {
                 <button
                   key={index}
                   onClick={() => handlePageChange(index + 1)}
-                  className={`w-full p-2 border rounded-lg transition-colors ${
-                    viewerState.currentPage === index + 1
+                  className={`w-full p-2 border rounded-lg transition-colors ${viewerState.currentPage === index + 1
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                  }`}
+                    }`}
                 >
                   {thumbnail ? (
-                    <img 
-                      src={thumbnail} 
+                    <img
+                      src={thumbnail}
                       alt={`Page ${index + 1}`}
                       className="w-full h-auto rounded"
                     />
@@ -375,11 +372,10 @@ const ViewPDFTool: React.FC = () => {
             /* File Upload */
             <div className="flex-1 flex items-center justify-center p-8">
               <div
-                className={`w-full max-w-md border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  isDragOver
+                className={`w-full max-w-md border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragOver
                     ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
                     : 'border-gray-300 dark:border-gray-600'
-                }`}
+                  }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -420,7 +416,7 @@ const ViewPDFTool: React.FC = () => {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  
+
                   <div className="flex items-center space-x-2">
                     <input
                       type="number"
@@ -434,7 +430,7 @@ const ViewPDFTool: React.FC = () => {
                       of {viewerState.totalPages}
                     </span>
                   </div>
-                  
+
                   <button
                     onClick={() => handlePageChange(viewerState.currentPage + 1)}
                     disabled={viewerState.currentPage >= viewerState.totalPages}
@@ -452,7 +448,7 @@ const ViewPDFTool: React.FC = () => {
                   >
                     <ZoomOut className="w-4 h-4" />
                   </button>
-                  
+
                   <select
                     value={viewerState.fitMode}
                     onChange={(e) => handleFitModeChange(e.target.value as any)}
@@ -463,14 +459,14 @@ const ViewPDFTool: React.FC = () => {
                     <option value="height">Fit Height</option>
                     <option value="page">Fit Page</option>
                   </select>
-                  
+
                   <button
                     onClick={() => handleZoomChange(viewerState.zoom + 25)}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <ZoomIn className="w-4 h-4" />
                   </button>
-                  
+
                   <button
                     onClick={handleRotation}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -538,7 +534,7 @@ const ViewPDFTool: React.FC = () => {
         {selectedFile && viewerState.showInfo && (
           <div className="w-80 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Document Information</h3>
-            
+
             <div className="space-y-4">
               <div className="bg-white dark:bg-gray-700 rounded-lg p-3">
                 <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">File Details</h4>

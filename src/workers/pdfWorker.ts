@@ -1,5 +1,5 @@
 import { expose } from 'comlink'
-import { PDFDocument, rgb, degrees } from 'pdf-lib'
+import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib'
 import * as pdfjsLib from 'pdfjs-dist'
 
 // Configure PDF.js worker
@@ -26,14 +26,14 @@ export interface PDFWorkerAPI {
   flattenForms: (pdfData: Uint8Array) => Promise<Uint8Array>
   removeAnnotations: (pdfData: Uint8Array) => Promise<Uint8Array>
   sanitizePDF: (pdfData: Uint8Array, options: any) => Promise<Uint8Array>
-    analyzeEncryption: (pdfData: Uint8Array) => Promise<any>
+  analyzeEncryption: (pdfData: Uint8Array) => Promise<any>
   testPassword: (pdfData: Uint8Array, password: string) => Promise<boolean>
   detectFormFields: (pdfData: Uint8Array) => Promise<any[]>
   fillForms: (pdfData: Uint8Array, formData: Record<string, any>) => Promise<Uint8Array>
   convertToGrayscale: (pdfData: Uint8Array) => Promise<Uint8Array>
   convertImageToPDF: (imageData: Uint8Array, options: any) => Promise<Uint8Array>
   convertPDFPageToImage: (pdfData: Uint8Array, pageIndex: number, format: 'png' | 'jpeg' | 'webp') => Promise<Uint8Array>
-  createSearchablePDF: (pdfData: Uint8Array, options: any) => Promise<Uint8Array>
+  addInvisibleText: (pdfData: Uint8Array, pagesOcrData: any[], scale: number) => Promise<Uint8Array>
 }
 
 class PDFWorker implements PDFWorkerAPI {
@@ -49,75 +49,75 @@ class PDFWorker implements PDFWorkerAPI {
 
   async renderPageAsImage(pdfData: Uint8Array, pageIndex: number, options: { scale?: number; format?: 'png' | 'jpeg' } = {}): Promise<ImageData> {
     const { scale = 2.0 } = options
-    
+
     try {
       // Load PDF with PDF.js for rendering
       const loadingTask = pdfjsLib.getDocument({ data: pdfData })
       const pdfDocument = await loadingTask.promise
-      
+
       // Get the specific page
       const page = await pdfDocument.getPage(pageIndex + 1) // PDF.js uses 1-based indexing
-      
+
       // Get page dimensions
       const viewport = page.getViewport({ scale })
-      
+
       // Create canvas for rendering
       const canvas = new OffscreenCanvas(viewport.width, viewport.height)
       const context = canvas.getContext('2d')!
-      
+
       // Render page to canvas
-      const renderContext = {
+      const renderContext: any = {
         canvasContext: context,
         viewport: viewport
       }
-      
+
       await page.render(renderContext).promise
-      
+
       // Get ImageData from canvas
       const imageData = context.getImageData(0, 0, viewport.width, viewport.height)
-      
+
       // Clean up
       page.cleanup()
       pdfDocument.destroy()
-      
+
       return imageData
-      
+
     } catch (error) {
       console.error('Error rendering PDF page as image:', error)
-      
+
       // Fallback: create a simple white canvas with error text
       const width = Math.floor(595 * scale) // A4 width in points * scale
       const height = Math.floor(842 * scale) // A4 height in points * scale
-      
+
       const canvas = new OffscreenCanvas(width, height)
       const ctx = canvas.getContext('2d')!
-      
+
       // Fill with white background
       ctx.fillStyle = 'white'
       ctx.fillRect(0, 0, width, height)
-      
+
       // Add error message
       ctx.fillStyle = 'black'
       ctx.font = `${Math.floor(16 * scale)}px Arial`
       ctx.fillText('Page rendering failed', 50, 50)
       ctx.fillText(`Page ${pageIndex + 1}`, 50, 80)
-      
+
       return ctx.getImageData(0, 0, width, height)
     }
   }
 
   async mergePDFs(pdfDatas: Uint8Array[]): Promise<Uint8Array> {
     const mergedPdf = await PDFDocument.create()
-    
+
     for (const pdfData of pdfDatas) {
       const sourcePdf = await PDFDocument.load(pdfData)
       const pageCount = sourcePdf.getPageCount()
       const pageIndices = Array.from({ length: pageCount }, (_, i) => i)
-      
+
       const copiedPages = await mergedPdf.copyPages(sourcePdf, pageIndices)
       copiedPages.forEach(page => mergedPdf.addPage(page))
     }
-    
+
     return await mergedPdf.save()
   }
 
@@ -125,49 +125,49 @@ class PDFWorker implements PDFWorkerAPI {
     const sourcePdf = await PDFDocument.load(pdfData)
     const totalPages = sourcePdf.getPageCount()
     const results: Uint8Array[] = []
-    
+
     let currentStart = 0
-    
+
     for (const splitPoint of [...splitPoints, totalPages].sort((a, b) => a - b)) {
       if (splitPoint <= currentStart || splitPoint > totalPages) continue
-      
+
       const newPdf = await PDFDocument.create()
       const pageIndices = Array.from(
         { length: splitPoint - currentStart },
         (_, i) => currentStart + i
       )
-      
+
       const copiedPages = await newPdf.copyPages(sourcePdf, pageIndices)
       copiedPages.forEach(page => newPdf.addPage(page))
-      
+
       results.push(await newPdf.save())
       currentStart = splitPoint
     }
-    
+
     return results
   }
 
   async extractPages(pdfData: Uint8Array, pageIndices: number[]): Promise<Uint8Array> {
     const sourcePdf = await PDFDocument.load(pdfData)
     const newPdf = await PDFDocument.create()
-    
+
     const copiedPages = await newPdf.copyPages(sourcePdf, pageIndices)
     copiedPages.forEach(page => newPdf.addPage(page))
-    
+
     return await newPdf.save()
   }
 
   async rotatePages(
-    pdfData: Uint8Array, 
+    pdfData: Uint8Array,
     rotations: Array<{ pageIndex: number; degrees: number }>
   ): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfData)
-    
+
     for (const { pageIndex, degrees: rotationDegrees } of rotations) {
       const page = pdfDoc.getPage(pageIndex)
       page.setRotation(degrees(rotationDegrees))
     }
-    
+
     return await pdfDoc.save()
   }
 
@@ -181,13 +181,13 @@ class PDFWorker implements PDFWorkerAPI {
       rotation = 0,
       position = 'center'
     } = options
-    
+
     for (const pageIndex of pageIndices) {
       const page = pdfDoc.getPage(pageIndex)
       const { width, height } = page.getSize()
-      
+
       let x: number, y: number
-      
+
       switch (position) {
         case 'top-left':
           x = 50; y = height - 50
@@ -206,7 +206,7 @@ class PDFWorker implements PDFWorkerAPI {
           x = width / 2; y = height / 2
           break
       }
-      
+
       page.drawText(text, {
         x,
         y,
@@ -216,7 +216,7 @@ class PDFWorker implements PDFWorkerAPI {
         rotate: degrees(rotation),
       })
     }
-    
+
     return await pdfDoc.save()
   }
 
@@ -230,21 +230,21 @@ class PDFWorker implements PDFWorkerAPI {
       position = 'bottom-center',
       format = '{page}' // Can be '{page}', '{page} of {total}', etc.
     } = options
-    
+
     const totalPages = pdfDoc.getPageCount()
-    
+
     for (let i = 0; i < pageIndices.length; i++) {
       const pageIndex = pageIndices[i]
       const page = pdfDoc.getPage(pageIndex)
       const { width, height } = page.getSize()
-      
+
       const pageNumber = startNumber + i
       const text = format
         .replace('{page}', pageNumber.toString())
         .replace('{total}', totalPages.toString())
-      
+
       let x: number, y: number
-      
+
       switch (position) {
         case 'top-left':
           x = 50; y = height - 30
@@ -266,7 +266,7 @@ class PDFWorker implements PDFWorkerAPI {
           x = width / 2; y = 30
           break
       }
-      
+
       page.drawText(text, {
         x,
         y,
@@ -274,7 +274,7 @@ class PDFWorker implements PDFWorkerAPI {
         color: rgb(color.r, color.g, color.b),
       })
     }
-    
+
     return await pdfDoc.save()
   }
 
@@ -289,11 +289,11 @@ class PDFWorker implements PDFWorkerAPI {
       marginTop = 30,
       marginBottom = 30
     } = options
-    
+
     for (const pageIndex of pageIndices) {
       const page = pdfDoc.getPage(pageIndex)
       const { width, height } = page.getSize()
-      
+
       // Draw header
       if (header.left) {
         page.drawText(header.left, {
@@ -319,7 +319,7 @@ class PDFWorker implements PDFWorkerAPI {
           color: rgb(color.r, color.g, color.b),
         })
       }
-      
+
       // Draw footer
       if (footer.left) {
         page.drawText(footer.left, {
@@ -346,7 +346,7 @@ class PDFWorker implements PDFWorkerAPI {
         })
       }
     }
-    
+
     return await pdfDoc.save()
   }
 
@@ -355,12 +355,12 @@ class PDFWorker implements PDFWorkerAPI {
     cropBoxes: Array<{ pageIndex: number; x: number; y: number; width: number; height: number }>
   ): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfData)
-    
+
     for (const { pageIndex, x, y, width, height } of cropBoxes) {
       const page = pdfDoc.getPage(pageIndex)
       page.setCropBox(x, y, width, height)
     }
-    
+
     return await pdfDoc.save()
   }
 
@@ -379,9 +379,9 @@ class PDFWorker implements PDFWorkerAPI {
       addPageNumbers = false,
       centerPages = true
     } = options
-    
+
     const outputPdf = await PDFDocument.create()
-    
+
     // Merge all input PDFs into one source PDF
     const mergedSourcePdf = await PDFDocument.create()
     for (const pdfData of pdfDatas) {
@@ -391,16 +391,16 @@ class PDFWorker implements PDFWorkerAPI {
       const copiedPages = await mergedSourcePdf.copyPages(sourcePdf, pageIndices)
       copiedPages.forEach(page => mergedSourcePdf.addPage(page))
     }
-    
+
     const sourcePageCount = mergedSourcePdf.getPageCount()
     if (sourcePageCount === 0) {
       return await outputPdf.save()
     }
-    
+
     // Get first page dimensions for auto-orientation
     const firstPage = mergedSourcePdf.getPage(0)
     const { width: sourceWidth, height: sourceHeight } = firstPage.getSize()
-    
+
     // Determine page size and orientation
     let pageWidth: number, pageHeight: number
     if (orientation === 'auto') {
@@ -417,31 +417,31 @@ class PDFWorker implements PDFWorkerAPI {
     } else {
       pageWidth = 612; pageHeight = 792
     }
-    
+
     const pagesPerSheet = cols * rows
     const totalSheets = Math.ceil(sourcePageCount / pagesPerSheet)
-    
+
     // Parse background color
-    const bgColor = backgroundColor.startsWith('#') 
+    const bgColor = backgroundColor.startsWith('#')
       ? {
-          r: parseInt(backgroundColor.slice(1, 3), 16) / 255,
-          g: parseInt(backgroundColor.slice(3, 5), 16) / 255,
-          b: parseInt(backgroundColor.slice(5, 7), 16) / 255
-        }
+        r: parseInt(backgroundColor.slice(1, 3), 16) / 255,
+        g: parseInt(backgroundColor.slice(3, 5), 16) / 255,
+        b: parseInt(backgroundColor.slice(5, 7), 16) / 255
+      }
       : { r: 1, g: 1, b: 1 }
-    
+
     // Parse border color
     const borderColor = border.color.startsWith('#')
       ? {
-          r: parseInt(border.color.slice(1, 3), 16) / 255,
-          g: parseInt(border.color.slice(3, 5), 16) / 255,
-          b: parseInt(border.color.slice(5, 7), 16) / 255
-        }
+        r: parseInt(border.color.slice(1, 3), 16) / 255,
+        g: parseInt(border.color.slice(3, 5), 16) / 255,
+        b: parseInt(border.color.slice(5, 7), 16) / 255
+      }
       : { r: 0, g: 0, b: 0 }
-    
+
     for (let sheet = 0; sheet < totalSheets; sheet++) {
       const outputPage = outputPdf.addPage([pageWidth, pageHeight])
-      
+
       // Fill background color
       if (backgroundColor !== '#ffffff') {
         outputPage.drawRectangle({
@@ -452,13 +452,13 @@ class PDFWorker implements PDFWorkerAPI {
           color: rgb(bgColor.r, bgColor.g, bgColor.b)
         })
       }
-      
+
       const cellWidth = (pageWidth - 2 * margin - (cols - 1) * spacing) / cols
       const cellHeight = (pageHeight - 2 * margin - (rows - 1) * spacing) / rows
-      
+
       for (let pos = 0; pos < pagesPerSheet; pos++) {
         let sourcePageIndex: number
-        
+
         // Calculate source page index based on page order
         if (pageOrder === 'vertical') {
           const col = Math.floor(pos / rows)
@@ -467,23 +467,23 @@ class PDFWorker implements PDFWorkerAPI {
         } else {
           sourcePageIndex = sheet * pagesPerSheet + pos
         }
-        
+
         if (sourcePageIndex >= sourcePageCount) break
-        
+
         const sourcePage = mergedSourcePdf.getPage(sourcePageIndex)
         const [embeddedPage] = await outputPdf.embedPages([sourcePage])
-        
+
         const col = pageOrder === 'vertical' ? Math.floor(pos / rows) : pos % cols
         const row = pageOrder === 'vertical' ? pos % rows : Math.floor(pos / cols)
-        
+
         let x = margin + col * (cellWidth + spacing)
         let y = pageHeight - margin - (row + 1) * cellHeight - row * spacing
-        
+
         // Calculate scaling
         const { width: originalWidth, height: originalHeight } = sourcePage.getSize()
         let scaleX = cellWidth / originalWidth
         let scaleY = cellHeight / originalHeight
-        
+
         if (scaling === 'fit') {
           const scale = Math.min(scaleX, scaleY)
           scaleX = scaleY = scale
@@ -491,16 +491,16 @@ class PDFWorker implements PDFWorkerAPI {
           scaleX = scaleY = customScale
         }
         // For 'fill', use different scales for X and Y (already set)
-        
+
         const scaledWidth = originalWidth * scaleX
         const scaledHeight = originalHeight * scaleY
-        
+
         // Center the page in the cell if requested
         if (centerPages) {
           x += (cellWidth - scaledWidth) / 2
           y += (cellHeight - scaledHeight) / 2
         }
-        
+
         // Draw the embedded page
         outputPage.drawPage(embeddedPage, {
           x,
@@ -508,7 +508,7 @@ class PDFWorker implements PDFWorkerAPI {
           width: scaledWidth,
           height: scaledHeight
         })
-        
+
         // Draw border if specified
         if (border.width > 0) {
           outputPage.drawRectangle({
@@ -520,13 +520,13 @@ class PDFWorker implements PDFWorkerAPI {
             borderWidth: border.width
           })
         }
-        
+
         // Add page numbers if requested
         if (addPageNumbers) {
           const pageNumber = sourcePageIndex + 1
           const numberX = margin + col * (cellWidth + spacing) + cellWidth / 2
           const numberY = pageHeight - margin - (row + 1) * cellHeight - row * spacing - 15
-          
+
           outputPage.drawText(pageNumber.toString(), {
             x: numberX,
             y: numberY,
@@ -536,7 +536,7 @@ class PDFWorker implements PDFWorkerAPI {
         }
       }
     }
-    
+
     return await outputPdf.save()
   }
 
@@ -554,29 +554,29 @@ class PDFWorker implements PDFWorkerAPI {
       labelPosition = 'corner'
       // outputFormat - used for future enhancements
     } = options
-    
+
     const sourcePdf = await PDFDocument.load(pdfData)
     const sourcePageCount = sourcePdf.getPageCount()
-    
+
     if (sourcePageCount === 0) {
       return await sourcePdf.save()
     }
-    
+
     const outputPdf = await PDFDocument.create()
-    
+
     // Parse cut line color
     const cutColor = cutLineColor.startsWith('#')
       ? {
-          r: parseInt(cutLineColor.slice(1, 3), 16) / 255,
-          g: parseInt(cutLineColor.slice(3, 5), 16) / 255,
-          b: parseInt(cutLineColor.slice(5, 7), 16) / 255
-        }
+        r: parseInt(cutLineColor.slice(1, 3), 16) / 255,
+        g: parseInt(cutLineColor.slice(3, 5), 16) / 255,
+        b: parseInt(cutLineColor.slice(5, 7), 16) / 255
+      }
       : { r: 0.8, g: 0.8, b: 0.8 }
-    
+
     for (let pageIndex = 0; pageIndex < sourcePageCount; pageIndex++) {
       const sourcePage = sourcePdf.getPage(pageIndex)
       const { width: sourceWidth, height: sourceHeight } = sourcePage.getSize()
-      
+
       // Calculate scale factor
       let scale: number
       if (scaleMode === 'custom') {
@@ -585,31 +585,31 @@ class PDFWorker implements PDFWorkerAPI {
         // Auto-fit: scale to fit at least 2x2 tiles
         scale = Math.max(2, Math.ceil(Math.max(sourceWidth / tileSize.width, sourceHeight / tileSize.height)))
       }
-      
+
       const scaledWidth = sourceWidth * scale
       const scaledHeight = sourceHeight * scale
-      
+
       // Calculate number of tiles needed
       const tilesX = Math.ceil((scaledWidth - overlap) / (tileSize.width - overlap))
       const tilesY = Math.ceil((scaledHeight - overlap) / (tileSize.height - overlap))
-      
+
       // Create tiles
       for (let tileY = 0; tileY < tilesY; tileY++) {
         for (let tileX = 0; tileX < tilesX; tileX++) {
           const tilePage = outputPdf.addPage([tileSize.width, tileSize.height])
-          
+
           // Calculate the source area for this tile
           const tileStartX = tileX * (tileSize.width - overlap)
           const tileStartY = tileY * (tileSize.height - overlap)
-          
+
           // Calculate the portion of the scaled page to show
           const scaleX = scaledWidth / sourceWidth
           const scaleY = scaledHeight / sourceHeight
-          
+
           // Position the source page to show the correct portion
           const offsetX = -tileStartX / scaleX + margin
           const offsetY = tileSize.height - tileStartY / scaleY - sourceHeight * scaleY + margin
-          
+
           // Embed and draw the source page
           const [embeddedPage] = await outputPdf.embedPages([sourcePage])
           tilePage.drawPage(embeddedPage, {
@@ -618,11 +618,11 @@ class PDFWorker implements PDFWorkerAPI {
             width: sourceWidth * scaleX,
             height: sourceHeight * scaleY
           })
-          
+
           // Add cut lines if requested
           if (addCutLines) {
             const lineWidth = 1
-            
+
             // Draw border cut lines
             tilePage.drawRectangle({
               x: margin,
@@ -632,7 +632,7 @@ class PDFWorker implements PDFWorkerAPI {
               borderColor: rgb(cutColor.r, cutColor.g, cutColor.b),
               borderWidth: lineWidth
             })
-            
+
             // Draw overlap indicators if there's overlap
             if (overlap > 0 && (tileX > 0 || tileY > 0 || tileX < tilesX - 1 || tileY < tilesY - 1)) {
               // Left overlap
@@ -645,7 +645,7 @@ class PDFWorker implements PDFWorkerAPI {
                   dashArray: cutLineStyle === 'dashed' ? [5, 5] : cutLineStyle === 'dotted' ? [2, 2] : undefined
                 })
               }
-              
+
               // Top overlap
               if (tileY > 0) {
                 tilePage.drawLine({
@@ -658,12 +658,12 @@ class PDFWorker implements PDFWorkerAPI {
               }
             }
           }
-          
+
           // Add labels if requested
           if (addLabels) {
             const label = `${String.fromCharCode(65 + tileY)}${tileX + 1}` // A1, A2, B1, B2, etc.
             const fontSize = 12
-            
+
             let labelX: number, labelY: number
             if (labelPosition === 'corner') {
               labelX = tileSize.width - margin - 30
@@ -672,7 +672,7 @@ class PDFWorker implements PDFWorkerAPI {
               labelX = tileSize.width - margin - 30
               labelY = margin + 5
             }
-            
+
             // Draw label background
             tilePage.drawRectangle({
               x: labelX - 15,
@@ -683,7 +683,7 @@ class PDFWorker implements PDFWorkerAPI {
               borderColor: rgb(0, 0, 0),
               borderWidth: 1
             })
-            
+
             tilePage.drawText(label, {
               x: labelX - 8,
               y: labelY,
@@ -694,36 +694,36 @@ class PDFWorker implements PDFWorkerAPI {
         }
       }
     }
-    
+
     return await outputPdf.save()
   }
 
   async interleavePages(pdfDatas: Uint8Array[], options: any = {}): Promise<Uint8Array> {
-    const { 
+    const {
       mode = 'zip',
       customPattern = [1, 2, 1, 2],
       insertAfter = 1,
       skipBlankPages = false
       // preserveOrder - used for future enhancements
     } = options
-    
+
     const outputPdf = await PDFDocument.create()
     const sourcePdfs = await Promise.all(pdfDatas.map(data => PDFDocument.load(data)))
-    
+
     if (sourcePdfs.length === 0) {
       return await outputPdf.save()
     }
-    
+
     // Collect all pages from source PDFs
     const allSourcePages: Array<{ pdfIndex: number; pageIndex: number; page: any }> = []
-    
+
     for (let pdfIndex = 0; pdfIndex < sourcePdfs.length; pdfIndex++) {
       const pdf = sourcePdfs[pdfIndex]
       const pageCount = pdf.getPageCount()
-      
+
       for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
         const page = pdf.getPage(pageIndex)
-        
+
         // Skip blank pages if requested (simplified check)
         if (skipBlankPages) {
           // This is a simplified blank page detection
@@ -731,13 +731,13 @@ class PDFWorker implements PDFWorkerAPI {
           const { width, height } = page.getSize()
           if (width === 0 || height === 0) continue
         }
-        
+
         allSourcePages.push({ pdfIndex, pageIndex, page })
       }
     }
-    
+
     let pagesToAdd: Array<{ pdfIndex: number; pageIndex: number }> = []
-    
+
     switch (mode) {
       case 'zip': {
         // Alternate pages from each document
@@ -751,7 +751,7 @@ class PDFWorker implements PDFWorkerAPI {
         }
         break
       }
-      
+
       case 'alternate': {
         // Add all pages from first document, then all from second, etc.
         for (let pdfIndex = 0; pdfIndex < sourcePdfs.length; pdfIndex++) {
@@ -762,17 +762,17 @@ class PDFWorker implements PDFWorkerAPI {
         }
         break
       }
-      
+
       case 'burst': {
         // Insert pages from other documents at specific position in main document
         const mainPdf = sourcePdfs[0]
         const mainPageCount = mainPdf.getPageCount()
-        
+
         // Add pages before insertion point
         for (let pageIndex = 0; pageIndex < Math.min(insertAfter, mainPageCount); pageIndex++) {
           pagesToAdd.push({ pdfIndex: 0, pageIndex })
         }
-        
+
         // Insert pages from other documents
         for (let pdfIndex = 1; pdfIndex < sourcePdfs.length; pdfIndex++) {
           const pageCount = sourcePdfs[pdfIndex].getPageCount()
@@ -780,37 +780,37 @@ class PDFWorker implements PDFWorkerAPI {
             pagesToAdd.push({ pdfIndex, pageIndex })
           }
         }
-        
+
         // Add remaining pages from main document
         for (let pageIndex = insertAfter; pageIndex < mainPageCount; pageIndex++) {
           pagesToAdd.push({ pdfIndex: 0, pageIndex })
         }
         break
       }
-      
+
       case 'custom': {
         // Follow custom pattern
         let patternIndex = 0
         const maxPagesPerDoc = sourcePdfs.map(pdf => pdf.getPageCount())
         const currentPageIndex = new Array(sourcePdfs.length).fill(0)
-        
+
         while (patternIndex < customPattern.length && currentPageIndex.some((idx, docIdx) => idx < maxPagesPerDoc[docIdx])) {
           const docIndex = customPattern[patternIndex] - 1 // Convert to 0-based
-          
+
           if (docIndex >= 0 && docIndex < sourcePdfs.length && currentPageIndex[docIndex] < maxPagesPerDoc[docIndex]) {
             pagesToAdd.push({ pdfIndex: docIndex, pageIndex: currentPageIndex[docIndex] })
             currentPageIndex[docIndex]++
           }
-          
+
           patternIndex = (patternIndex + 1) % customPattern.length
-          
+
           // Prevent infinite loop
           if (pagesToAdd.length > 10000) break
         }
         break
       }
     }
-    
+
     // Copy and add pages to output PDF
     for (const { pdfIndex, pageIndex } of pagesToAdd) {
       try {
@@ -821,13 +821,13 @@ class PDFWorker implements PDFWorkerAPI {
         console.warn(`Error copying page ${pageIndex} from document ${pdfIndex}:`, error)
       }
     }
-    
+
     return await outputPdf.save()
   }
 
   async compressPDF(pdfData: Uint8Array, _options: any = {}): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfData)
-    
+
     // Basic compression by re-saving with optimization
     return await pdfDoc.save({
       useObjectStreams: true,
@@ -837,46 +837,62 @@ class PDFWorker implements PDFWorkerAPI {
 
   async encryptPDF(
     pdfData: Uint8Array,
-    _userPassword: string,
-    _ownerPassword?: string,
-    _permissions?: any
+    userPassword: string,
+    ownerPassword?: string,
+    permissions?: any
   ): Promise<Uint8Array> {
-    // Note: pdf-lib has limited encryption support
-    // This is a placeholder for the basic implementation
     const pdfDoc = await PDFDocument.load(pdfData)
+
+    const standardPermissions = permissions || {
+      modifying: false,
+      copying: false,
+      printing: false
+    }
+
+    pdfDoc.encrypt({
+      userPassword,
+      ownerPassword: ownerPassword || userPassword,
+      permissions: standardPermissions,
+    })
+
     return await pdfDoc.save()
   }
 
-  async decryptPDF(pdfData: Uint8Array, _password: string): Promise<Uint8Array> {
-    // Note: pdf-lib has limited decryption support
-    // This is a placeholder for the basic implementation
-    const pdfDoc = await PDFDocument.load(pdfData)
-    return await pdfDoc.save()
+  async decryptPDF(pdfData: Uint8Array, password: string): Promise<Uint8Array> {
+    try {
+      // Load with password (decrypts in memory)
+      const pdfDoc = await PDFDocument.load(pdfData, { password })
+      // Saving without calling encrypt() will remove the encryption
+      return await pdfDoc.save()
+    } catch (error) {
+      console.error('Error decrypting PDF:', error)
+      throw new Error('Failed to decrypt PDF. Please check the password.')
+    }
   }
 
   async setMetadata(pdfData: Uint8Array, metadata: any): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfData)
-    
+
     if (metadata.title) pdfDoc.setTitle(metadata.title)
     if (metadata.author) pdfDoc.setAuthor(metadata.author)
     if (metadata.subject) pdfDoc.setSubject(metadata.subject)
     if (metadata.keywords) pdfDoc.setKeywords([metadata.keywords])
     if (metadata.creator) pdfDoc.setCreator(metadata.creator)
     if (metadata.producer) pdfDoc.setProducer(metadata.producer)
-    
+
     pdfDoc.setCreationDate(new Date())
     pdfDoc.setModificationDate(new Date())
-    
+
     return await pdfDoc.save()
   }
 
   async flattenForms(pdfData: Uint8Array): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfData)
     const form = pdfDoc.getForm()
-    
+
     // Flatten all form fields
     form.flatten()
-    
+
     return await pdfDoc.save()
   }
 
@@ -893,9 +909,9 @@ class PDFWorker implements PDFWorkerAPI {
       removeJavaScript: _removeJavaScript = true,
       removeEmbeddedFiles: _removeEmbeddedFiles = true
     } = options
-    
+
     const pdfDoc = await PDFDocument.load(pdfData)
-    
+
     if (removeMetadata) {
       pdfDoc.setTitle('')
       pdfDoc.setAuthor('')
@@ -904,12 +920,254 @@ class PDFWorker implements PDFWorkerAPI {
       pdfDoc.setCreator('')
       pdfDoc.setProducer('')
     }
-    
+
     // Note: pdf-lib has limited support for JavaScript and embedded file removal
     // These would need more advanced PDF manipulation
-    
+
     return await pdfDoc.save()
   }
+
+
+  async analyzeEncryption(pdfData: Uint8Array): Promise<any> {
+    try {
+      // Load with pdf.js to analyze encryption
+      const loadingTask = pdfjsLib.getDocument({ data: pdfData })
+      const pdfDocument = await loadingTask.promise
+
+      // @ts-ignore - accessing internal property if needed, or use public API
+      // In newer pdf.js, we might need to check permissions differently
+      // For now, returning basic info
+
+      return {
+        isEncrypted: true, // If we can load it without password, it might not be encrypted or has empty password
+        // This is a simplified implementation
+        canPrint: true,
+        canCopy: true,
+        canModify: true
+      }
+    } catch (error: any) {
+      if (error.name === 'PasswordException') {
+        return {
+          isEncrypted: true,
+          isPasswordProtected: true,
+          canPrint: false,
+          canCopy: false,
+          canModify: false
+        }
+      }
+      return { isEncrypted: false }
+    }
+  }
+
+  async testPassword(pdfData: Uint8Array, password: string): Promise<boolean> {
+    try {
+      const loadingTask = pdfjsLib.getDocument({
+        data: pdfData,
+        password: password
+      })
+      await loadingTask.promise
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  async detectFormFields(pdfData: Uint8Array): Promise<any[]> {
+    try {
+      const pdfDoc = await PDFDocument.load(pdfData)
+      const form = pdfDoc.getForm()
+      const fields = form.getFields()
+
+      return fields.map(field => {
+        const type = field.constructor.name
+        const name = field.getName()
+        return { name, type, id: name }
+      })
+    } catch (error) {
+      console.error('Error detecting form fields:', error)
+      return []
+    }
+  }
+
+  async fillForms(pdfData: Uint8Array, formData: Record<string, any>): Promise<Uint8Array> {
+    try {
+      const pdfDoc = await PDFDocument.load(pdfData)
+      const form = pdfDoc.getForm()
+
+      Object.entries(formData).forEach(([fieldName, value]) => {
+        try {
+          const field = form.getField(fieldName)
+          if (field) {
+            if (typeof value === 'string') {
+              // Handle text fields
+              try {
+                const textField = form.getTextField(fieldName)
+                textField.setText(value)
+              } catch (e) {
+                // Might be a dropdown or other type
+              }
+            } else if (typeof value === 'boolean') {
+              // Handle checkboxes
+              try {
+                const checkBox = form.getCheckBox(fieldName)
+                if (value) checkBox.check()
+                else checkBox.uncheck()
+              } catch (e) { }
+            }
+          }
+        } catch (e) {
+          console.warn(`Could not fill field ${fieldName}`, e)
+        }
+      })
+
+      return await pdfDoc.save()
+    } catch (error) {
+      console.error('Error filling forms:', error)
+      throw error
+    }
+  }
+
+  async convertToGrayscale(pdfData: Uint8Array): Promise<Uint8Array> {
+    try {
+      const sourceDoc = await PDFDocument.load(pdfData)
+      const newDoc = await PDFDocument.create()
+      const pageCount = sourceDoc.getPageCount()
+
+      for (let i = 0; i < pageCount; i++) {
+        // Render page to image
+        const imageData = await this.renderPageAsImage(pdfData, i, { scale: 2.0 })
+
+        // Convert to grayscale on canvas
+        const canvas = new OffscreenCanvas(imageData.width, imageData.height)
+        const ctx = canvas.getContext('2d')!
+        ctx.putImageData(imageData, 0, 0)
+
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const data = pixels.data
+
+        // Apply grayscale
+        for (let j = 0; j < data.length; j += 4) {
+          const avg = (data[j] * 0.299 + data[j + 1] * 0.587 + data[j + 2] * 0.114)
+          data[j] = avg
+          data[j + 1] = avg
+          data[j + 2] = avg
+        }
+        ctx.putImageData(pixels, 0, 0)
+
+        // Convert to JPEG blob
+        const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 })
+        const buffer = await blob.arrayBuffer()
+
+        // Embed in new PDF
+        const image = await newDoc.embedJpg(buffer)
+        const page = newDoc.addPage([image.width / 2, image.height / 2]) // Scale back down
+
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: page.getWidth(),
+          height: page.getHeight()
+        })
+      }
+
+      return await newDoc.save()
+    } catch (error) {
+      console.error('Error converting to grayscale:', error)
+      throw error
+    }
+  }
+
+  async convertImageToPDF(imageData: Uint8Array, options: any = {}): Promise<Uint8Array> {
+    try {
+      const pdfDoc = await PDFDocument.create()
+      const page = pdfDoc.addPage()
+      const { width, height } = page.getSize()
+
+      let image
+      // Try embedding as PNG first, then JPEG
+      try {
+        image = await pdfDoc.embedPng(imageData)
+      } catch (e) {
+        image = await pdfDoc.embedJpg(imageData)
+      }
+
+      const imgDims = image.scale(1)
+
+      // Center image
+      const x = (width - imgDims.width) / 2
+      const y = (height - imgDims.height) / 2
+
+      page.drawImage(image, {
+        x: Math.max(0, x),
+        y: Math.max(0, y),
+        width: Math.min(width, imgDims.width),
+        height: Math.min(height, imgDims.height),
+      })
+
+      return await pdfDoc.save()
+    } catch (error) {
+      console.error('Error converting image to PDF:', error)
+      throw error
+    }
+  }
+
+  async convertPDFPageToImage(pdfData: Uint8Array, pageIndex: number, format: 'png' | 'jpeg' | 'webp' = 'png'): Promise<Uint8Array> {
+    // Reuse existing renderPageAsImage but return Uint8Array instead of ImageData
+    // We'll use a temporary canvas for this
+    const imageData = await this.renderPageAsImage(pdfData, pageIndex, { scale: 2.0 })
+
+    const canvas = new OffscreenCanvas(imageData.width, imageData.height)
+    const ctx = canvas.getContext('2d')!
+    ctx.putImageData(imageData, 0, 0)
+
+    const blob = await canvas.convertToBlob({ type: `image/${format}` })
+    return new Uint8Array(await blob.arrayBuffer())
+  }
+
+  async addInvisibleText(pdfData: Uint8Array, pagesOcrData: any[], scale: number): Promise<Uint8Array> {
+    try {
+      const pdfDoc = await PDFDocument.load(pdfData)
+      const pages = pdfDoc.getPages()
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i]
+        const ocrData = pagesOcrData[i]
+
+        if (!ocrData || !ocrData.words) continue
+
+        const { height } = page.getSize()
+
+        for (const word of ocrData.words) {
+          if (!word.bbox) continue
+
+          // Convert bbox from image coords to PDF coords
+          // bbox: { x0, y0, x1, y1 }
+          const x = word.bbox.x0 / scale
+          const width = (word.bbox.x1 - word.bbox.x0) / scale
+          const wordHeight = (word.bbox.y1 - word.bbox.y0) / scale
+
+          // PDF y is from bottom, OCR y is from top
+          const y = height - (word.bbox.y1 / scale)
+
+          page.drawText(word.text, {
+            x,
+            y,
+            size: wordHeight,
+            font,
+            opacity: 0, // Invisible
+            color: rgb(0, 0, 0)
+          })
+        }
+      }
+
+      return await pdfDoc.save()
+    } catch (error) {
+      console.error('Error adding invisible text:', error)
+      throw error
+    }
+  }
+
 }
 
 expose(new PDFWorker())
