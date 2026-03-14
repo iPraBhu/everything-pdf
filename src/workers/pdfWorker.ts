@@ -102,12 +102,37 @@ class PDFWorker implements PDFWorkerAPI {
       // Create canvas for rendering
       const canvas = new OffscreenCanvas(viewport.width, viewport.height)
       const context = canvas.getContext('2d')!
+      const canvasFactory = {
+        create: (width: number, height: number) => {
+          const factoryCanvas = new OffscreenCanvas(width, height)
+          const factoryContext = factoryCanvas.getContext('2d')!
+          return {
+            canvas: factoryCanvas,
+            context: factoryContext
+          }
+        },
+        reset: (
+          canvasAndContext: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D },
+          width: number,
+          height: number
+        ) => {
+          canvasAndContext.canvas.width = width
+          canvasAndContext.canvas.height = height
+        },
+        destroy: (
+          canvasAndContext: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D }
+        ) => {
+          canvasAndContext.canvas.width = 0
+          canvasAndContext.canvas.height = 0
+        }
+      }
 
       // Render page to canvas
       const renderContext: any = {
         canvasContext: context,
         viewport: viewport,
-        canvas
+        canvas,
+        canvasFactory
       }
 
       await page.render(renderContext).promise

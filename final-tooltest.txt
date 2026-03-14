@@ -1,0 +1,47 @@
+
+> free-pdf-tools@1.0.0 preview
+> vite preview --host 127.0.0.1 --port 4175 --strictPort
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m4175[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[browser:warning] Warning: Setting up fake worker.
+[browser:error] Failed to load resource: the server responded with a status of 404 (Not Found)
+[browser:warning] Warning: Setting up fake worker.
+[browser:error] Error rendering PDF page as image: TypeError: Cannot read properties of undefined (reading 'createElement')
+    at Lg._createCanvas (http://127.0.0.1:4175/assets/pdfWorker-Bk8LdP2R.js:39:105730)
+    at Lg.create (http://127.0.0.1:4175/assets/pdfWorker-Bk8LdP2R.js:39:105117)
+    at $g.getCanvas (http://127.0.0.1:4175/assets/pdfWorker-Bk8LdP2R.js:39:132783)
+    at Qr._scaleImage (http://127.0.0.1:4175/assets/pdfWorker-Bk8LdP2R.js:39:140633)
+    at Qr.paintInlineImageXObject (http://127.0.0.1:4175/assets/pdfWorker-Bk8LdP2R.js:39:166626)
+    at Qr.paintImageXObject (http://127.0.0.1:4175/assets/pdfWorker-Bk8LdP2R.js:39:165417)
+    at Qr.executeOperatorList (http://127.0.0.1:4175/assets/pdfWorker-Bk8LdP2R.js:39:139212)
+    at Kr._next (http://127.0.0.1:4175/assets/pdfWorker-Bk8LdP2R.js:39:232544)
+[browser:log] Initializing Tesseract.js worker...
+[browser:log] Tesseract worker: loading tesseract core 
+[browser:log] Tesseract worker: loading tesseract core 100%
+[browser:log] Tesseract worker: initializing tesseract 
+[browser:log] Tesseract worker: initializing tesseract 100%
+[browser:log] Tesseract worker: loading language traineddata 
+[browser:log] Tesseract worker: loading language traineddata 50%
+[browser:log] Tesseract worker: loading language traineddata 100%
+[browser:log] Tesseract worker: initializing api 
+[browser:log] Tesseract worker: initializing api 100%
+[browser:log] Tesseract.js worker initialized successfully
+[browser:log] Performing OCR with language: eng, PSM: 6
+[browser:log] Tesseract worker: recognizing text 
+[browser:log] Tesseract worker: recognizing text 100%
+[browser:log] OCR completed successfully, text length: 11
+[browser:error] OCR processing failed: TypeError: Cannot read properties of undefined (reading 'map')
+    at xr.performOCR (http://127.0.0.1:4175/assets/ocrWorker-ZVBQUMkP.js:1:20649)
+[browser:log] Performing OCR with language: eng, PSM: 6
+[browser:log] Tesseract worker: recognizing text 
+[browser:log] Tesseract worker: recognizing text 100%
+[browser:log] OCR completed successfully, text length: 11
+[browser:error] OCR processing failed: TypeError: Cannot read properties of undefined (reading 'map')
+    at xr.performOCR (http://127.0.0.1:4175/assets/ocrWorker-ZVBQUMkP.js:1:20649)
+[browser:log] Performing OCR with language: eng, PSM: 6
+[browser:log] Tesseract worker: recognizing text 
+[browser:log] Tesseract worker: recognizing text 100%
+[browser:log] OCR completed successfully, text length: 11
+[browser:error] OCR processing failed: TypeError: Cannot read properties of undefined (reading 'map')
+    at xr.performOCR (http://127.0.0.1:4175/assets/ocrWorker-ZVBQUMkP.js:1:20649)

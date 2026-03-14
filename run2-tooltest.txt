@@ -1,0 +1,17 @@
+
+> free-pdf-tools@1.0.0 test:tools
+> node scripts/run-tool-tests.mjs
+
+
+> free-pdf-tools@1.0.0 dev
+> vite --host 127.0.0.1 --port 4174 --strictPort
+
+
+  [32m[1mVITE[22m v7.2.4[39m  [2mready in [0m[1m678[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m4174[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[browser:debug] [vite] connecting...
+[browser:debug] [vite] connected.
+[browser:warning] Warning: Setting up fake worker.
+[browser:log] [vite] server connection lost. Polling for restart...

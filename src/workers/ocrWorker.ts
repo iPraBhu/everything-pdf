@@ -68,8 +68,7 @@ class OCRWorker implements OCRWorkerAPI {
 
       const {
         language = 'eng',
-        pageSegMode = PSM.SINGLE_BLOCK,
-        ocrEngineMode = OEM.LSTM_ONLY
+        pageSegMode = PSM.SINGLE_BLOCK
       } = options
 
       console.log(`Performing OCR with language: ${language}, PSM: ${pageSegMode}`)
@@ -81,8 +80,7 @@ class OCRWorker implements OCRWorkerAPI {
 
       // Set page segmentation mode
       await this.worker.setParameters({
-        tessedit_pageseg_mode: pageSegMode,
-        tessedit_ocr_engine_mode: ocrEngineMode,
+        tessedit_pageseg_mode: pageSegMode
       })
 
       // Convert ImageData to Canvas for Tesseract
@@ -91,35 +89,29 @@ class OCRWorker implements OCRWorkerAPI {
       ctx.putImageData(imageData, 0, 0)
 
       // Perform OCR with simplified logger
-      const { data } = await this.worker.recognize(canvas, {
-        logger: (m: any) => {
-          if (m.status) {
-            console.log(`Tesseract: ${m.status} - ${m.progress ? Math.round(m.progress * 100) + '%' : ''}`)
-          }
-        }
-      })
+      const { data } = await this.worker.recognize(canvas)
 
       console.log('OCR completed successfully, text length:', data.text.length)
 
       return {
         text: data.text,
         confidence: data.confidence,
-        words: data.words.map((word: any) => ({
+        words: (Array.isArray(data.words) ? data.words : []).map((word: any) => ({
           text: word.text,
           confidence: word.confidence,
           bbox: word.bbox
         })),
-        lines: data.lines.map((line: any) => ({
+        lines: (Array.isArray(data.lines) ? data.lines : []).map((line: any) => ({
           text: line.text,
           confidence: line.confidence,
           bbox: line.bbox,
-          words: line.words.map((word: any) => ({
+          words: (Array.isArray(line.words) ? line.words : []).map((word: any) => ({
             text: word.text,
             confidence: word.confidence,
             bbox: word.bbox
           }))
         })),
-        paragraphs: data.paragraphs.map((paragraph: any) => ({
+        paragraphs: (Array.isArray(data.paragraphs) ? data.paragraphs : []).map((paragraph: any) => ({
           text: paragraph.text,
           confidence: paragraph.confidence,
           bbox: paragraph.bbox

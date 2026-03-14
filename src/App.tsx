@@ -7,6 +7,7 @@ import { Help } from './routes/Help'
 import { ThemeProvider } from './components/ThemeProvider'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Toast } from './components/Toast'
+import { PwaLifecycle } from './components/PwaLifecycle'
 import BatchProcessorPanel from './components/BatchProcessorPanel'
 import { SEO } from './components/SEO'
 
@@ -14,6 +15,7 @@ function App() {
   return (
     <ThemeProvider>
       <ErrorBoundary>
+        <PwaLifecycle />
         <Router>
           <div className="app-shell">
             <SEO />

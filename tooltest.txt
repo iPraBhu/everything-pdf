@@ -1,0 +1,100 @@
+
+> free-pdf-tools@1.0.0 test:tools
+> node scripts/run-tool-tests.mjs
+
+
+> free-pdf-tools@1.0.0 dev
+> vite --host 127.0.0.1 --port 4173 --strictPort
+
+
+  [32m[1mVITE[22m v7.2.4[39m  [2mready in [0m[1m681[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m4173[22m/[39m
+[2m3:00:19 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Failed to resolve import "virtual:pwa-register" from "src/components/PwaLifecycle.tsx". Does the file exist?
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Tools/git-projects/everything-pdf/src/components/PwaLifecycle.tsx[39m:2:27
+[33m  1  |  var _s = $RefreshSig$();
+  2  |  import { useEffect } from "react";
+  3  |  import { registerSW } from "virtual:pwa-register";
+     |                              ^
+  4  |  import { useToastStore } from "./Toast";
+  5  |  let hasRegisteredServiceWorker = false;[39m
+[browser:debug] [vite] connecting...
+[browser:debug] [vite] connected.
+[browser:warning] Warning: Setting up fake worker.
+[browser:error] Failed to load resource: the server responded with a status of 404 (Not Found)
+[browser:debug] [vite] connecting...
+[browser:debug] [vite] connected.
+[browser:warning] Warning: Setting up fake worker.
+[browser:log] Initializing Tesseract.js worker...
+[browser:log] Initializing Tesseract.js worker...
+[browser:log] Initializing Tesseract.js worker...
+[browser:error] Error rendering PDF page as image: TypeError: Cannot read properties of undefined (reading 'createElement')
+    at DOMCanvasFactory._createCanvas (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=751988d3:8238:35)
+    at DOMCanvasFactory.create (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=751988d3:8196:25)
+    at CachedCanvases.getCanvas (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=751988d3:9898:40)
+    at _CanvasGraphics._scaleImage (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=751988d3:10369:39)
+    at _CanvasGraphics.paintInlineImageXObject (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=751988d3:11685:25)
+    at _CanvasGraphics.paintImageXObject (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=751988d3:11610:10)
+    at _CanvasGraphics.executeOperatorList (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=751988d3:10284:23)
+    at _InternalRenderTask._next (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=751988d3:15645:37)
+[browser:log] Tesseract worker: loading tesseract core 
+[browser:log] Tesseract worker: loading tesseract core 
+[browser:log] Tesseract worker: loading tesseract core 
+[browser:log] Tesseract worker: loading tesseract core 100%
+[browser:log] Tesseract worker: initializing tesseract 
+[browser:log] Tesseract worker: loading tesseract core 100%
+[browser:log] Tesseract worker: initializing tesseract 
+[browser:log] Tesseract worker: loading tesseract core 100%
+[browser:log] Tesseract worker: initializing tesseract 
+[browser:log] Tesseract worker: initializing tesseract 100%
+[browser:log] Tesseract worker: initializing tesseract 100%
+[browser:log] Tesseract worker: initializing tesseract 100%
+[browser:log] Tesseract worker: loading language traineddata 
+[browser:log] Tesseract worker: loading language traineddata 
+[browser:log] Tesseract worker: loading language traineddata 
+[browser:log] Tesseract worker: loading language traineddata 50%
+[browser:log] Tesseract worker: loading language traineddata 50%
+[browser:log] Tesseract worker: loading language traineddata 50%
+[browser:log] Tesseract worker: loading language traineddata 100%
+[browser:log] Tesseract worker: initializing api 
+[browser:log] Tesseract worker: loading language traineddata 100%
+[browser:log] Tesseract worker: initializing api 
+[browser:log] Tesseract worker: loading language traineddata 100%
+[browser:log] Tesseract worker: initializing api 
+[browser:log] Tesseract worker: initializing api 100%
+[browser:log] Tesseract.js worker initialized successfully
+[browser:log] Performing OCR with language: eng, PSM: 6
+[browser:log] Tesseract worker: initializing api 100%
+[browser:log] Tesseract worker: initializing api 100%
+[browser:log] Tesseract.js worker initialized successfully
+[browser:log] Attempted to set parameters that can only be set during initialization: tessedit_ocr_engine_mode
+[browser:log] Performing OCR with language: eng, PSM: 6
+[browser:log] Tesseract.js worker initialized successfully
+[browser:log] Performing OCR with language: eng, PSM: 6
+[browser:log] Attempted to set parameters that can only be set during initialization: tessedit_ocr_engine_mode
+[browser:log] Attempted to set parameters that can only be set during initialization: tessedit_ocr_engine_mode
+[browser:error] Failed to execute 'postMessage' on 'Worker': (m) => {
+          if (m.status) {
+            console.log(`Tesseract: ${m.status} - ${m.progress ? Math.round(...<omitted>... } could not be cloned.
+[browser:error] Failed to execute 'postMessage' on 'Worker': (m) => {
+          if (m.status) {
+            console.log(`Tesseract: ${m.status} - ${m.progress ? Math.round(...<omitted>... } could not be cloned.
+[browser:error] Failed to execute 'postMessage' on 'Worker': (m) => {
+          if (m.status) {
+            console.log(`Tesseract: ${m.status} - ${m.progress ? Math.round(...<omitted>... } could not be cloned.
+[2m3:20:30 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m3:21:46 PM[22m [36m[1m[vite][22m[39m [32mvite.config.ts changed, restarting server...[39m
+[2m3:21:46 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/workers/pdfWorker.ts[22m
+[2m3:21:46 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/workers/ocrWorker.ts[22m
+[2m3:21:46 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/tool-tests/browserHarness.ts[22m
+[2m3:21:46 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+[2m3:21:46 PM[22m [36m[1m[vite][22m[39m server restarted.
+page.evaluate: Execution context was destroyed, most likely because of a navigation.
+[2m3:24:58 PM[22m [36m[1m[vite][22m[39m [32mvite.config.ts changed, restarting server...[39m
+[2m3:24:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/tool-tests/browserHarness.ts[22m
+[2m3:24:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+[2m3:24:58 PM[22m [36m[1m[vite][22m[39m server restarted.
+[2m3:58:38 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mtool-test-shell.html[22m
+[2m4:01:32 PM[22m [36m[1m[vite][22m[39m [32mvite.config.ts changed, restarting server...[39m
+[2m4:01:32 PM[22m [36m[1m[vite][22m[39m server restarted.

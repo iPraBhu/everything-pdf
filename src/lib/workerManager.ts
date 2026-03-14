@@ -55,11 +55,37 @@ class WorkerManager {
         return await pdfWorker.mergePDFs(jobConfig.files)
 
       case 'split':
-      case 'smart-split':
-        return await pdfWorker.splitPDF(jobConfig.file, jobConfig.options)
+      case 'smart-split': {
+        if (Array.isArray(jobConfig.options)) {
+          return await pdfWorker.splitPDF(jobConfig.file, jobConfig.options)
+        }
+
+        if (Array.isArray(jobConfig.splitPoints)) {
+          return await pdfWorker.splitPDF(jobConfig.file, jobConfig.splitPoints)
+        }
+
+        const splits = jobConfig.options?.splits
+        if (Array.isArray(splits) && splits.length > 0) {
+          const files = await Promise.all(splits.map(async (split: { start: number; end: number }) => {
+            const start = Math.max(1, split.start || 1)
+            const end = Math.max(start, split.end || start)
+            const pageIndices = Array.from({ length: end - start + 1 }, (_, index) => start - 1 + index)
+            return pdfWorker.extractPages(jobConfig.file, pageIndices)
+          }))
+
+          return { files }
+        }
+
+        return await pdfWorker.splitPDF(jobConfig.file, jobConfig.options?.splitPoints || [])
+      }
 
       case 'compress':
-        return await pdfWorker.compressPDF(jobConfig.file, jobConfig.options)
+        if (Array.isArray(jobConfig.files)) {
+          return await Promise.all(
+            jobConfig.files.map((file: Uint8Array) => pdfWorker.compressPDF(file, jobConfig.options?.config || jobConfig.options))
+          )
+        }
+        return await pdfWorker.compressPDF(jobConfig.file, jobConfig.options?.config || jobConfig.options)
 
       case 'encrypt':
         return await pdfWorker.encryptPDF(
@@ -107,6 +133,12 @@ class WorkerManager {
 
       case 'fill-forms':
         return await pdfWorker.fillForms(jobConfig.file, jobConfig.formData)
+
+      case 'metadata':
+        return await pdfWorker.setMetadata(
+          jobConfig.file,
+          jobConfig.options?.metadata || jobConfig.metadata || jobConfig.options || {}
+        )
 
       case 'searchable-pdf':
         return await this.createSearchablePDF(jobConfig.file, jobConfig.options)

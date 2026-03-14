@@ -1,0 +1,36 @@
+
+> free-pdf-tools@1.0.0 test:tools
+> node scripts/run-tool-tests.mjs
+
+
+> free-pdf-tools@1.0.0 dev
+> vite --host 127.0.0.1 --port 4175 --strictPort
+
+
+  [32m[1mVITE[22m v7.2.4[39m  [2mready in [0m[1m666[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m4175[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[browser:debug] [vite] connecting...
+[browser:debug] [vite] connected.
+[browser:warning] Warning: Setting up fake worker.
+[browser:error] Failed to load resource: the server responded with a status of 404 (Not Found)
+[browser:debug] [vite] connecting...
+[browser:warning] Warning: Setting up fake worker.
+[browser:debug] [vite] connected.
+[browser:error] Error rendering PDF page as image: TypeError: Cannot read properties of undefined (reading 'createElement')
+    at DOMCanvasFactory._createCanvas (http://127.0.0.1:4175/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=fa651a38:8238:35)
+    at DOMCanvasFactory.create (http://127.0.0.1:4175/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=fa651a38:8196:25)
+    at CachedCanvases.getCanvas (http://127.0.0.1:4175/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=fa651a38:9898:40)
+    at _CanvasGraphics._scaleImage (http://127.0.0.1:4175/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=fa651a38:10369:39)
+    at _CanvasGraphics.paintInlineImageXObject (http://127.0.0.1:4175/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=fa651a38:11685:25)
+    at _CanvasGraphics.paintImageXObject (http://127.0.0.1:4175/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=fa651a38:11610:10)
+    at _CanvasGraphics.executeOperatorList (http://127.0.0.1:4175/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=fa651a38:10284:23)
+    at _InternalRenderTask._next (http://127.0.0.1:4175/node_modules/.vite/deps/chunk-UL7WA5VO.js?v=fa651a38:15645:37)
+[2m3:23:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ new dependencies optimized: [33mtesseract.js[32m[39m
+[2m3:23:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ optimized dependencies changed. reloading[39m
+[browser:log] Initializing Tesseract.js worker...
+[2m3:24:58 PM[22m [36m[1m[vite][22m[39m [32mvite.config.ts changed, restarting server...[39m
+[2m3:24:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/tool-tests/browserHarness.ts[22m
+[2m3:24:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+[2m3:24:58 PM[22m [36m[1m[vite][22m[39m server restarted.

@@ -23,7 +23,7 @@ interface ToastState {
   clearAll: () => void
 }
 
-const useToastStore = create<ToastState>((set, get) => ({
+export const useToastStore = create<ToastState>((set, get) => ({
   toasts: [],
   
   addToast: (toast) => {

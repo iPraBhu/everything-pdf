@@ -1,0 +1,21 @@
+[2m3:20:39 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Failed to resolve import "virtual:pwa-register" from "src/components/PwaLifecycle.tsx". Does the file exist?
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Tools/git-projects/everything-pdf/src/components/PwaLifecycle.tsx[39m:2:27
+[33m  1  |  var _s = $RefreshSig$();
+  2  |  import { useEffect } from "react";
+  3  |  import { registerSW } from "virtual:pwa-register";
+     |                              ^
+  4  |  import { useToastStore } from "./Toast";
+  5  |  let hasRegisteredServiceWorker = false;[39m
+[browser:error] Failed to execute 'postMessage' on 'Worker': (m) => {
+          if (m.status) {
+            console.log(`Tesseract: ${m.status} - ${m.progress ? Math.round(...<omitted>... } could not be cloned.
+[browser:error] Failed to execute 'postMessage' on 'Worker': (m) => {
+          if (m.status) {
+            console.log(`Tesseract: ${m.status} - ${m.progress ? Math.round(...<omitted>... } could not be cloned.
+[browser:error] Failed to execute 'postMessage' on 'Worker': (m) => {
+          if (m.status) {
+            console.log(`Tesseract: ${m.status} - ${m.progress ? Math.round(...<omitted>... } could not be cloned.
+page.evaluate: Execution context was destroyed, most likely because of a navigation.
+[2m3:25:06 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31merror while updating dependencies:
+Error: EPERM: operation not permitted, rename 'C:\Tools\git-projects\everything-pdf\node_modules\.vite\deps_temp_252e1c3c' -> 'C:\Tools\git-projects\everything-pdf\node_modules\.vite\deps'[39m

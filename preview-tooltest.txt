@@ -1,0 +1,28 @@
+
+> free-pdf-tools@1.0.0 build
+> tsc && vite build
+
+[36mvite v7.2.4 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 2312 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                      [39m[1m[2m    3.26 kB[22m[1m[22m[2m │ gzip:   1.01 kB[22m
+[2mdist/[22m[32massets/imageWorker-ZIp5GW2w.js  [39m[1m[2m    6.86 kB[22m[1m[22m
+[2mdist/[22m[32massets/ocrWorker-ZVBQUMkP.js    [39m[1m[2m   21.39 kB[22m[1m[22m
+[2mdist/[22m[32massets/pdfWorker-Bk8LdP2R.js    [39m[1m[2m  853.65 kB[22m[1m[22m
+[2mdist/[22m[32massets/pdf.worker-zxMdjS_u.mjs  [39m[1m[2m1,916.05 kB[22m[1m[22m
+[2mdist/[22m[35massets/index-1PxhJFKI.css       [39m[1m[2m   61.91 kB[22m[1m[22m[2m │ gzip:  10.42 kB[22m
+[2mdist/[22m[36massets/ocr-TDtrdbi3.js          [39m[1m[2m    0.24 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+[2mdist/[22m[36massets/workers-CzO__GUh.js      [39m[1m[2m    4.05 kB[22m[1m[22m[2m │ gzip:   1.82 kB[22m
+[2mdist/[22m[36massets/ui-K15E6wWq.js           [39m[1m[2m   48.26 kB[22m[1m[22m[2m │ gzip:  17.09 kB[22m
+[2mdist/[22m[36massets/pdf-libs-Bads06vx.js     [39m[1m[33m  834.52 kB[39m[22m[2m │ gzip: 296.27 kB[22m
+[2mdist/[22m[36massets/index-B8nHPtJS.js        [39m[1m[33m1,296.39 kB[39m[22m[2m │ gzip: 316.09 kB[22m
+[32m✓ built in 10.94s[39m
+
+> free-pdf-tools@1.0.0 preview
+> vite preview --host 127.0.0.1 --port 4174 --strictPort
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m4174[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[browser:warning] No routes matched location "/tool-test-shell.html" 
