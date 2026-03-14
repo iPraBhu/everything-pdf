@@ -60,102 +60,38 @@ const FillFormsTool: React.FC = () => {
     if (!selectedFile) return
 
     try {
-      // For now, we'll simulate form field detection
-      console.warn('Form field detection not yet implemented in workerManager')
-      
-      // Mock form fields for demonstration
-      const mockFields: FormField[] = [
-        {
-          id: 'field-1',
-          name: 'firstName',
-          type: 'text',
-          value: '',
-          page: 1,
-          x: 100,
-          y: 150,
-          width: 200,
-          height: 30,
-          placeholder: 'First Name',
-          required: true
-        },
-        {
-          id: 'field-2',
-          name: 'lastName',
-          type: 'text',
-          value: '',
-          page: 1,
-          x: 100,
-          y: 200,
-          width: 200,
-          height: 30,
-          placeholder: 'Last Name',
-          required: true
-        },
-        {
-          id: 'field-3',
-          name: 'email',
-          type: 'email',
-          value: '',
-          page: 1,
-          x: 100,
-          y: 250,
-          width: 300,
-          height: 30,
-          placeholder: 'Email Address',
-          required: true
-        },
-        {
-          id: 'field-4',
-          name: 'birthDate',
-          type: 'date',
-          value: '',
-          page: 1,
-          x: 100,
-          y: 300,
-          width: 150,
-          height: 30
-        },
-        {
-          id: 'field-5',
-          name: 'comments',
-          type: 'textarea',
-          value: '',
-          page: 1,
-          x: 100,
-          y: 350,
-          width: 400,
-          height: 100,
-          placeholder: 'Additional Comments'
-        },
-        {
-          id: 'field-6',
-          name: 'gender',
-          type: 'radio',
-          value: '',
-          options: ['Male', 'Female', 'Other'],
-          page: 1,
-          x: 100,
-          y: 470,
-          width: 300,
-          height: 30
-        },
-        {
-          id: 'field-7',
-          name: 'newsletter',
-          type: 'checkbox',
-          value: '',
-          page: 1,
-          x: 100,
-          y: 520,
-          width: 20,
-          height: 20
-        }
-      ]
+      const detectedFields = await workerManager.detectFormFields(selectedFile.data)
+      const parsedFields: FormField[] = detectedFields.map((field, index) => {
+        const normalizedType = String(field.type || '').toLowerCase()
+        let type: FormField['type'] = 'text'
 
-      setFormFields(mockFields)
+        if (normalizedType.includes('checkbox')) {
+          type = 'checkbox'
+        } else if (normalizedType.includes('radio')) {
+          type = 'radio'
+        } else if (normalizedType.includes('dropdown') || normalizedType.includes('option')) {
+          type = 'select'
+        } else if (normalizedType.includes('text')) {
+          type = 'text'
+        }
+
+        return {
+          id: field.id || `field-${index + 1}`,
+          name: field.name || `field_${index + 1}`,
+          type,
+          value: '',
+          page: 1,
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0
+        }
+      })
+
+      setFormFields(parsedFields)
       
       // Initialize mappings
-      const mappings: FormFieldMapping[] = mockFields.map(field => ({
+      const mappings: FormFieldMapping[] = parsedFields.map(field => ({
         originalName: field.name,
         newName: field.name,
         value: '',
@@ -164,7 +100,7 @@ const FillFormsTool: React.FC = () => {
       }))
       
       setFieldMappings(mappings)
-      console.log('Form fields detected (mock):', mockFields.length)
+      console.log('Form fields detected:', parsedFields.length)
       
     } catch (error) {
       console.error('Error detecting form fields:', error)
@@ -321,28 +257,28 @@ const FillFormsTool: React.FC = () => {
 
       updateJob(jobId, { progress: 20 })
 
-      // Prepare form data
       const formData: FillFormData = {}
       formFields.forEach(field => {
-        if (field.value) {
-          formData[field.name] = field.value
+        if (field.value !== '') {
+          if (field.type === 'checkbox') {
+            formData[field.name] = field.value === 'true' || field.value === 'yes' || field.value === 'on'
+          } else {
+            formData[field.name] = field.value
+          }
         }
       })
 
       updateJob(jobId, { progress: 40 })
 
-      // For now, we'll simulate the form filling
-      console.warn('Form filling not yet implemented in workerManager')
-      
-      updateJob(jobId, { progress: 80 })
+      const filledData = await workerManager.fillForms(selectedFile.data, formData)
 
-      // Create filled form PDF placeholder
-      const filledData = new Uint8Array([
-        0x25, 0x50, 0x44, 0x46, // PDF header
-        // ... actual filled form PDF content would be generated here
-      ])
+      updateJob(jobId, { progress: 80 })
       
       const outputFileName = selectedFile.name.replace(/\.pdf$/i, '_filled.pdf')
+      const filledBuffer = filledData.buffer.slice(
+        filledData.byteOffset,
+        filledData.byteOffset + filledData.byteLength
+      ) as ArrayBuffer
       
       const filledFile = {
         id: `filled-${Date.now()}`,
@@ -350,7 +286,7 @@ const FillFormsTool: React.FC = () => {
         size: filledData.byteLength,
         type: 'application/pdf',
         lastModified: Date.now(),
-        file: new File([filledData], outputFileName, { type: 'application/pdf' }),
+        file: new File([filledBuffer], outputFileName, { type: 'application/pdf' }),
         pageCount: selectedFile.pageCount,
         data: filledData
       } as any
@@ -363,7 +299,7 @@ const FillFormsTool: React.FC = () => {
         endTime: Date.now()
       })
 
-      console.log('Form filling completed (simulated)', { formData })
+      console.log('Form filling completed', { formData })
 
     } catch (error) {
       console.error('Error filling form:', error)

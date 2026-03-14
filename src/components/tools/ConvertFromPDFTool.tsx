@@ -5,7 +5,7 @@ import { useJobsStore } from '../../state/jobs'
 import { workerManager } from '../../lib/workerManager'
 
 interface ConvertOptions {
-  format: 'png' | 'jpeg' | 'webp' | 'tiff'
+  format: 'png' | 'jpeg' | 'webp'
   quality: number // for jpeg/webp
   dpi: number
   pageRange: {
@@ -52,7 +52,6 @@ const ConvertFromPDFTool: React.FC = () => {
     png: { name: 'PNG', description: 'High quality, transparent background support', lossy: false },
     jpeg: { name: 'JPEG', description: 'Smaller files, good for photos', lossy: true },
     webp: { name: 'WebP', description: 'Modern format, small size, high quality', lossy: true },
-    tiff: { name: 'TIFF', description: 'Professional format, largest files', lossy: false }
   }
 
   const dpiOptions = [
@@ -160,9 +159,6 @@ const ConvertFromPDFTool: React.FC = () => {
       case 'webp':
         avgSizePerPage = (options.dpi / 150) * (options.quality / 100) * 150 * 1024 // ~150KB at 150 DPI, 100% quality
         break
-      case 'tiff':
-        avgSizePerPage = (options.dpi / 150) * 1000 * 1024 // ~1MB at 150 DPI
-        break
     }
 
     const totalSize = avgSizePerPage * pageCount
@@ -221,29 +217,19 @@ const ConvertFromPDFTool: React.FC = () => {
 
       updateJob(jobId, { progress: 20 })
 
-      const convertOptions = {
-        format: options.format,
-        quality: options.quality,
-        dpi: options.dpi,
-        startPage: range.start,
-        endPage: range.end
-      }
-
       updateJob(jobId, { progress: 40 })
-
-      // Convert PDF to images (this would need to be implemented in workerManager)
-      // For now, we'll simulate the process
-      const images: ArrayBuffer[] = []
+      const images: Uint8Array[] = []
       
       for (let pageNum = range.start; pageNum <= range.end; pageNum++) {
         updateJob(jobId, { 
           progress: 40 + ((pageNum - range.start) / pageCount) * 50
         })
 
-        // For now, we'll simulate the process
-        console.warn('PDF to image conversion not yet implemented in workerManager')
-        // Placeholder - would normally convert page to image
-        const imageResult = new ArrayBuffer(1024) // Dummy data
+        const imageResult = await workerManager.convertPDFPageToImage(
+          uint8Array,
+          pageNum - 1,
+          options.format
+        )
         images.push(imageResult)
       }
 
@@ -253,6 +239,10 @@ const ConvertFromPDFTool: React.FC = () => {
       images.forEach((imageData, index) => {
         const pageNum = range.start + index
         const fileName = generateFileName(pageNum, pageCount)
+        const imageBuffer = imageData.buffer.slice(
+          imageData.byteOffset,
+          imageData.byteOffset + imageData.byteLength
+        ) as ArrayBuffer
         
         const imageFile = {
           id: `image-${Date.now()}-${index}`,
@@ -260,7 +250,7 @@ const ConvertFromPDFTool: React.FC = () => {
           size: imageData.byteLength,
           type: `image/${options.format}`,
           lastModified: Date.now(),
-          file: new File([new Uint8Array(imageData)], fileName, { type: `image/${options.format}` }),
+          file: new File([imageBuffer], fileName, { type: `image/${options.format}` }),
           pageCount: 1,
           data: imageData
         } as any

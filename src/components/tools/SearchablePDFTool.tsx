@@ -46,6 +46,7 @@ const SearchablePDFTool: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [results, setResults] = useState<SearchableResult[]>([])
+  const [pageTextIndex, setPageTextIndex] = useState<Array<{ pageNumber: number; text: string }>>([])
   const [searchInfo, setSearchInfo] = useState<SearchInfo | null>(null)
   const [activeTab, setActiveTab] = useState<'settings' | 'preview' | 'progress' | 'results'>('settings')
   const [testQuery, setTestQuery] = useState('')
@@ -119,6 +120,7 @@ const SearchablePDFTool: React.FC = () => {
       
       setSelectedFile(fileData)
       setResults([])
+      setPageTextIndex([])
       setSearchInfo(null)
       console.log('PDF loaded:', fileData.name, `${pageCount} pages`)
     } catch (error) {
@@ -185,6 +187,9 @@ const SearchablePDFTool: React.FC = () => {
       let searchableWords = 0
       let totalConfidence = 0
       let processedPages = 0
+      const indexedText: Array<{ pageNumber: number; text: string }> = []
+      const { loadPDFDocument, extractPageText } = await import('../../lib/pdf')
+      const pdfDocument = await loadPDFDocument(selectedFile.data)
 
       // Process each page
       for (let pageIndex = 0; pageIndex < selectedFile.pageCount; pageIndex++) {
@@ -192,6 +197,9 @@ const SearchablePDFTool: React.FC = () => {
         updateJob(jobId, { progress: (pageNumber / selectedFile.pageCount) * 80 })
 
         try {
+          const sourcePage = await pdfDocument.getPage(pageNumber)
+          const existingText = await extractPageText(sourcePage)
+
           // Render PDF page as image for OCR
           const imageData = await workerManager.renderPageAsImage(
             selectedFile.data,
@@ -201,7 +209,7 @@ const SearchablePDFTool: React.FC = () => {
           
           // Perform OCR to get text layer data
           const ocrResult = await workerManager.performOCR(imageData, {
-            language: options.language.join('+')
+            language: options.ocrLanguage.join('+')
           })
           
           // Update progress after OCR completion
@@ -209,24 +217,26 @@ const SearchablePDFTool: React.FC = () => {
             progress: (pageNumber / selectedFile.pageCount) * 85
           })
           
-          const hasExistingText = ocrResult.confidence > 90 // High confidence indicates good OCR
+          const hasExistingText = existingText.trim().length > 0
           const ocrConfidence = ocrResult.confidence
-          const pageWords = (ocrResult.text.match(/\b\w+\b/g) || []).length
+          const indexedPageText = hasExistingText ? existingText : ocrResult.text
+          const pageWords = (indexedPageText.match(/\b\w+\b/g) || []).length
           const pageSearchableWords = Math.floor(pageWords * (ocrConfidence / 100))
+          indexedText.push({ pageNumber, text: indexedPageText })
 
           const result: SearchableResult = {
             pageNumber,
             hasExistingText,
-            ocrConfidence,
+            ocrConfidence: hasExistingText ? 100 : ocrConfidence,
             textAdded: !hasExistingText,
-            searchableWords: pageSearchableWords,
-            errors: ocrConfidence < 70 ? [`Low confidence on page ${pageNumber}`] : undefined
+            searchableWords: hasExistingText ? pageWords : pageSearchableWords,
+            errors: !hasExistingText && ocrConfidence < 70 ? [`Low confidence on page ${pageNumber}`] : undefined
           }
 
           pageResults.push(result)
           totalWords += pageWords
-          searchableWords += pageSearchableWords
-          totalConfidence += ocrConfidence
+          searchableWords += result.searchableWords
+          totalConfidence += result.ocrConfidence
           processedPages++
           
         } catch (ocrError) {
@@ -251,13 +261,14 @@ const SearchablePDFTool: React.FC = () => {
       }
 
       setResults(pageResults)
+      setPageTextIndex(indexedText)
 
       // Calculate final statistics
       const finalSearchInfo: SearchInfo = {
         totalWords,
         searchableWords,
-        coverage: (searchableWords / totalWords) * 100,
-        avgConfidence: totalConfidence / processedPages,
+        coverage: totalWords > 0 ? (searchableWords / totalWords) * 100 : 0,
+        avgConfidence: processedPages > 0 ? totalConfidence / processedPages : 0,
         bookmarksAdded: options.createBookmarks ? Math.floor(selectedFile.pageCount / 5) : 0
       }
 
@@ -265,16 +276,15 @@ const SearchablePDFTool: React.FC = () => {
 
       updateJob(jobId, { progress: 90 })
 
-      // For now, we'll simulate the creation
-      console.warn('Searchable PDF creation not yet implemented in workerManager')
-
-      // Create searchable PDF placeholder
-      const searchablePdfData = new Uint8Array([
-        0x25, 0x50, 0x44, 0x46, // PDF header
-        // ... actual searchable PDF content would be generated here
-      ])
+      const searchablePdfData = await workerManager.createSearchablePDF(selectedFile.data, {
+        ocrLanguage: options.ocrLanguage
+      })
       
       const outputFileName = selectedFile.name.replace(/\.pdf$/i, '_searchable.pdf')
+      const searchablePdfBuffer = searchablePdfData.buffer.slice(
+        searchablePdfData.byteOffset,
+        searchablePdfData.byteOffset + searchablePdfData.byteLength
+      ) as ArrayBuffer
       
       const searchablePdf = {
         id: `searchable-${Date.now()}`,
@@ -282,7 +292,7 @@ const SearchablePDFTool: React.FC = () => {
         size: searchablePdfData.byteLength,
         type: 'application/pdf',
         lastModified: Date.now(),
-        file: new File([searchablePdfData], outputFileName, { type: 'application/pdf' }),
+        file: new File([searchablePdfBuffer], outputFileName, { type: 'application/pdf' }),
         pageCount: selectedFile.pageCount,
         data: searchablePdfData
       } as any
@@ -315,10 +325,12 @@ const SearchablePDFTool: React.FC = () => {
   }
 
   const testSearch = () => {
-    if (!testQuery.trim() || results.length === 0) return
+    if (!testQuery.trim() || pageTextIndex.length === 0) return
     
-    // Simulate search functionality
-    const matchingPages = results.filter(() => Math.random() > 0.7) // Random matches
+    const normalizedQuery = testQuery.trim().toLowerCase()
+    const matchingPages = pageTextIndex.filter(page =>
+      page.text.toLowerCase().includes(normalizedQuery)
+    )
     
     if (matchingPages.length > 0) {
       alert(`Found "${testQuery}" on ${matchingPages.length} page(s): ${matchingPages.map(r => r.pageNumber).join(', ')}`)

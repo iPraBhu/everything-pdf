@@ -268,10 +268,46 @@ const CropPagesTool: React.FC = () => {
 
       updateJob(jobId, { progress: 70 })
 
-      // TODO: Implement cropPages in workerManager
-      // For now, we'll simulate cropping
-      console.warn('PDF cropping not yet implemented in workerManager')
-      const result = uint8Array // Placeholder - would normally be cropped
+      const { loadPDFDocument } = await import('../../lib/pdf')
+      const pdfDocument = await loadPDFDocument(uint8Array)
+      const cropBoxes = await Promise.all(affectedPages.map(async (pageNumber) => {
+        const page = await pdfDocument.getPage(pageNumber)
+        const viewport = page.getViewport({ scale: 1 })
+
+        const marginX = options.units === 'percent'
+          ? viewport.width * (options.margin / 100)
+          : options.units === 'mm'
+            ? (options.margin / 25.4) * 72
+            : options.units === 'inches'
+              ? options.margin * 72
+              : options.margin
+        const marginY = options.units === 'percent'
+          ? viewport.height * (options.margin / 100)
+          : options.units === 'mm'
+            ? (options.margin / 25.4) * 72
+            : options.units === 'inches'
+              ? options.margin * 72
+              : options.margin
+
+        const x = (cropArea.x / 100) * viewport.width + marginX
+        const width = Math.max(1, (cropArea.width / 100) * viewport.width - marginX * 2)
+        const height = Math.max(1, (cropArea.height / 100) * viewport.height - marginY * 2)
+        const y = viewport.height - ((cropArea.y + cropArea.height) / 100) * viewport.height + marginY
+
+        return {
+          pageIndex: pageNumber - 1,
+          x,
+          y,
+          width,
+          height
+        }
+      }))
+
+      const result = await workerManager.submitJob({
+        type: 'crop',
+        file: uint8Array,
+        cropBoxes
+      })
       
       updateJob(jobId, { progress: 90 })
 
@@ -296,7 +332,7 @@ const CropPagesTool: React.FC = () => {
         endTime: Date.now()
       })
 
-      console.log('PDF cropping completed (simulated)', { cropParams })
+      console.log('PDF cropping completed', { cropParams })
 
     } catch (error) {
       console.error('Error cropping PDF:', error)

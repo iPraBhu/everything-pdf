@@ -8,15 +8,17 @@ import { ThemeProvider } from './components/ThemeProvider'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Toast } from './components/Toast'
 import BatchProcessorPanel from './components/BatchProcessorPanel'
+import { SEO } from './components/SEO'
 
 function App() {
   return (
     <ThemeProvider>
       <ErrorBoundary>
         <Router>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <div className="app-shell">
+            <SEO />
             <Navigation />
-            <main className="pb-8">
+            <main className="relative z-10 pb-12">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/tools" element={<Tools />} />

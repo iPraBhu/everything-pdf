@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { Upload, FileText, Download, RefreshCw, Image, Plus, Trash2, RotateCw, Eye, Grid3x3, Layers, Type, Crop, Settings } from 'lucide-react'
+import mammoth from 'mammoth'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { useAppStore } from '../../state/store'
 import { useJobsStore } from '../../state/jobs'
-import { workerManager } from '../../lib/workerManager'
 
 interface ConvertOptions {
   pageSize: 'letter' | 'a4' | 'legal' | 'custom'
@@ -83,7 +84,7 @@ const ConvertToPDFTool: React.FC = () => {
       author: '',
       subject: '',
       keywords: '',
-      creator: 'Free PDF Tools'
+      creator: 'Free Everything PDF'
     }
   })
 
@@ -216,6 +217,235 @@ const ConvertToPDFTool: React.FC = () => {
     return totalPages
   }
 
+  const getBasePageSizePoints = () => {
+    const pageSize = options.pageSize === 'custom'
+      ? { width: options.customWidth, height: options.customHeight }
+      : pageSizes[options.pageSize]
+
+    let width = pageSize.width * 72
+    let height = pageSize.height * 72
+
+    if (options.orientation === 'landscape') {
+      ;[width, height] = [height, width]
+    }
+
+    return { width, height }
+  }
+
+  const getFontForText = async (pdfDoc: PDFDocument) => {
+    const family = options.textSettings.fontFamily.toLowerCase()
+
+    if (family.includes('courier')) {
+      return pdfDoc.embedFont(StandardFonts.Courier)
+    }
+
+    if (family.includes('times') || family.includes('georgia')) {
+      return pdfDoc.embedFont(StandardFonts.TimesRoman)
+    }
+
+    return pdfDoc.embedFont(StandardFonts.Helvetica)
+  }
+
+  const readImageElement = (file: File): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file)
+      const img = new window.Image()
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        resolve(img)
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        reject(new Error(`Unsupported image format: ${file.name}`))
+      }
+      img.src = url
+    })
+  }
+
+  const imageFileToPngBytes = async (file: File): Promise<{ bytes: Uint8Array; width: number; height: number }> => {
+    const img = await readImageElement(file)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+
+    if (!ctx) {
+      throw new Error('Unable to create a canvas for image conversion.')
+    }
+
+    canvas.width = img.naturalWidth
+    canvas.height = img.naturalHeight
+    ctx.drawImage(img, 0, 0)
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (!result) {
+          reject(new Error(`Failed to encode image: ${file.name}`))
+          return
+        }
+        resolve(result)
+      }, 'image/png')
+    })
+
+    return {
+      bytes: new Uint8Array(await blob.arrayBuffer()),
+      width: img.naturalWidth,
+      height: img.naturalHeight
+    }
+  }
+
+  const extractPlainText = async (inputFile: InputFile): Promise<string> => {
+    if (inputFile.type === 'document') {
+      const result = await mammoth.extractRawText({ arrayBuffer: await inputFile.file.arrayBuffer() })
+      return result.value
+    }
+
+    const rawText = await inputFile.file.text()
+
+    if (inputFile.file.type === 'text/html') {
+      const parsed = new DOMParser().parseFromString(rawText, 'text/html')
+      return parsed.body.textContent || ''
+    }
+
+    return rawText
+  }
+
+  const splitTextIntoLines = (text: string, maxWidth: number, font: any, fontSize: number) => {
+    const normalizedText = text.replace(/\r\n/g, '\n')
+    const paragraphs = normalizedText.split('\n')
+    const lines: string[] = []
+
+    for (const paragraph of paragraphs) {
+      const words = paragraph.split(/\s+/).filter(Boolean)
+
+      if (words.length === 0) {
+        lines.push('')
+        continue
+      }
+
+      let currentLine = ''
+      for (const word of words) {
+        const candidate = currentLine ? `${currentLine} ${word}` : word
+        const candidateWidth = font.widthOfTextAtSize(candidate, fontSize)
+
+        if (candidateWidth <= maxWidth || !currentLine) {
+          currentLine = candidate
+        } else {
+          lines.push(currentLine)
+          currentLine = word
+        }
+      }
+
+      if (currentLine) {
+        lines.push(currentLine)
+      }
+    }
+
+    return lines
+  }
+
+  const addTextDocument = async (pdfDoc: PDFDocument, inputFile: InputFile) => {
+    const { width, height } = getBasePageSizePoints()
+    const font = await getFontForText(pdfDoc)
+    const text = await extractPlainText(inputFile)
+    const lines = splitTextIntoLines(
+      text,
+      width - options.margins.left - options.margins.right,
+      font,
+      options.textSettings.fontSize
+    )
+    const lineHeight = options.textSettings.fontSize * options.textSettings.lineHeight
+    let page = pdfDoc.addPage([width, height])
+    let cursorY = height - options.margins.top
+
+    for (const line of lines) {
+      if (cursorY - lineHeight < options.margins.bottom) {
+        page = pdfDoc.addPage([width, height])
+        cursorY = height - options.margins.top
+      }
+
+      page.drawText(line, {
+        x: options.margins.left,
+        y: cursorY - options.textSettings.fontSize,
+        size: options.textSettings.fontSize,
+        font
+      })
+
+      cursorY -= lineHeight
+    }
+  }
+
+  const addImageDocument = async (pdfDoc: PDFDocument, inputFile: InputFile) => {
+    const image = await imageFileToPngBytes(inputFile.file)
+    let { width, height } = getBasePageSizePoints()
+
+    if (options.orientation === 'auto' && image.width > image.height) {
+      ;[width, height] = [height, width]
+    }
+
+    const page = pdfDoc.addPage([width, height])
+    const embeddedImage = await pdfDoc.embedPng(image.bytes)
+    const usableWidth = width - options.margins.left - options.margins.right
+    const usableHeight = height - options.margins.top - options.margins.bottom
+    const imageWidthInPoints = image.width * 72 / options.imageSettings.dpi
+    const imageHeightInPoints = image.height * 72 / options.imageSettings.dpi
+
+    let drawWidth = imageWidthInPoints
+    let drawHeight = imageHeightInPoints
+
+    switch (options.imageSettings.resizeMode) {
+      case 'fill': {
+        const scale = Math.max(usableWidth / imageWidthInPoints, usableHeight / imageHeightInPoints)
+        drawWidth = imageWidthInPoints * scale
+        drawHeight = imageHeightInPoints * scale
+        break
+      }
+      case 'stretch':
+        drawWidth = usableWidth
+        drawHeight = usableHeight
+        break
+      case 'original':
+        drawWidth = Math.min(imageWidthInPoints, usableWidth)
+        drawHeight = Math.min(imageHeightInPoints, usableHeight)
+        break
+      case 'fit':
+      default: {
+        const scale = Math.min(usableWidth / imageWidthInPoints, usableHeight / imageHeightInPoints)
+        drawWidth = imageWidthInPoints * scale
+        drawHeight = imageHeightInPoints * scale
+        break
+      }
+    }
+
+    page.drawImage(embeddedImage, {
+      x: options.margins.left + (usableWidth - drawWidth) / 2,
+      y: options.margins.bottom + (usableHeight - drawHeight) / 2,
+      width: drawWidth,
+      height: drawHeight
+    })
+  }
+
+  const buildPdfFromInputs = async () => {
+    const pdfDoc = await PDFDocument.create()
+    const orderedFiles = [...inputFiles].sort((a, b) => a.order - b.order)
+
+    for (const inputFile of orderedFiles) {
+      if (inputFile.type === 'image') {
+        await addImageDocument(pdfDoc, inputFile)
+      } else {
+        await addTextDocument(pdfDoc, inputFile)
+      }
+    }
+
+    if (options.outputSettings.title) pdfDoc.setTitle(options.outputSettings.title)
+    if (options.outputSettings.author) pdfDoc.setAuthor(options.outputSettings.author)
+    if (options.outputSettings.subject) pdfDoc.setSubject(options.outputSettings.subject)
+    if (options.outputSettings.keywords) {
+      pdfDoc.setKeywords(options.outputSettings.keywords.split(',').map(keyword => keyword.trim()).filter(Boolean))
+    }
+    if (options.outputSettings.creator) pdfDoc.setCreator(options.outputSettings.creator)
+
+    return pdfDoc.save()
+  }
+
   const handleConvertToPDF = async () => {
     if (inputFiles.length === 0) return
 
@@ -236,39 +466,27 @@ const ConvertToPDFTool: React.FC = () => {
 
       updateJob(jobId, { progress: 20 })
 
-      // Prepare conversion parameters
-      const conversionParams = {
-        files: inputFiles,
-        options,
-        pageSize: options.pageSize === 'custom' ? 
-          { width: options.customWidth, height: options.customHeight } : 
-          pageSizes[options.pageSize]
-      }
-
       updateJob(jobId, { progress: 50 })
-
-      // For now, we'll simulate the conversion
-      console.warn('Convert to PDF not yet implemented in workerManager')
-      
-      // Create a simple PDF placeholder (in reality this would be the converted PDF)
-      const pdfContent = new Uint8Array([
-        0x25, 0x50, 0x44, 0x46, // PDF header
-        // ... actual PDF content would be generated here
-      ])
+      const pdfContent = await buildPdfFromInputs()
       
       updateJob(jobId, { progress: 90 })
 
       // Create converted file
       const outputFileName = options.outputSettings.title || 
         `converted_${inputFiles.length}_files_${Date.now()}.pdf`
+      const finalFileName = outputFileName.endsWith('.pdf') ? outputFileName : `${outputFileName}.pdf`
+      const pdfBuffer = pdfContent.buffer.slice(
+        pdfContent.byteOffset,
+        pdfContent.byteOffset + pdfContent.byteLength
+      ) as ArrayBuffer
       
       const pdfFile = {
         id: `converted-${Date.now()}`,
-        name: outputFileName.endsWith('.pdf') ? outputFileName : `${outputFileName}.pdf`,
+        name: finalFileName,
         size: pdfContent.byteLength,
         type: 'application/pdf',
         lastModified: Date.now(),
-        file: new File([pdfContent], outputFileName, { type: 'application/pdf' }),
+        file: new File([pdfBuffer], finalFileName, { type: 'application/pdf' }),
         pageCount: calculateEstimatedPages(),
         data: pdfContent
       } as any
@@ -281,7 +499,10 @@ const ConvertToPDFTool: React.FC = () => {
         endTime: Date.now()
       })
 
-      console.log('PDF conversion completed (simulated)', { conversionParams })
+      console.log('PDF conversion completed', {
+        files: inputFiles.length,
+        outputPages: calculateEstimatedPages()
+      })
 
     } catch (error) {
       console.error('Error converting to PDF:', error)

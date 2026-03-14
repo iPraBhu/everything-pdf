@@ -1,41 +1,62 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Eye, Edit, Layout, RefreshCw, FileText, Shield, Zap, Scan, Settings,
-  Merge, SplitSquareHorizontal, FileDown, RotateCw, Crop, Hash, Type,
-  Grid3x3, Layers, Droplets, Palette, BookOpen, CheckSquare, MessageSquare,
-  FileX, Image, Minimize, Wrench, Lock, Unlock, ShieldCheck, PenTool,
-  EyeOff, Trash, ArrowLeft, Search
+  ArrowLeft,
+  Crop,
+  Droplets,
+  Edit,
+  Eye,
+  FileDown,
+  FileText,
+  FileX,
+  Grid3x3,
+  Hash,
+  Image,
+  Layers,
+  Layout,
+  Lock,
+  Merge,
+  MessageSquare,
+  Minimize,
+  Palette,
+  PenTool,
+  RefreshCw,
+  RotateCw,
+  Scan,
+  Search,
+  Settings,
+  Shield,
+  ShieldCheck,
+  SplitSquareHorizontal,
+  Type,
+  Unlock,
+  Wrench,
+  Zap
 } from 'lucide-react'
-
-// Import Tool Components
-import { ViewPDFTool } from '../components/tools/ViewPDFTool'
-import { EnhancedMergeTool } from '../components/tools/EnhancedMergeTool'
-import { SplitTool } from '../components/tools/SplitTool'
-import { SmartSplitterTool } from '../components/tools/SmartSplitterTool'
-import { RotatePagesTool } from '../components/tools/RotatePagesTool'
-import { CropPagesTool } from '../components/tools/CropPagesTool'
-import { ReorderPagesTool } from '../components/tools/ReorderPagesTool'
-import { ExtractPagesTool } from '../components/tools/ExtractPagesTool'
-import { AdvancedPageExtractionTool } from '../components/tools/AdvancedPageExtractionTool'
-import { ConvertToPDFTool } from '../components/tools/ConvertToPDFTool'
-import { ConvertFromPDFTool } from '../components/tools/ConvertFromPDFTool'
-import { PDFCompressionTool } from '../components/tools/PDFCompressionTool'
-import { GrayscaleTool } from '../components/tools/GrayscaleTool'
-import { PosterizeTool } from '../components/tools/PosterizeTool'
-import { EncryptPDFTool } from '../components/tools/EncryptPDFTool'
-import { DecryptPDFTool } from '../components/tools/DecryptPDFTool'
-import { PDFSecurityTool } from '../components/tools/PDFSecurityTool'
-import { DocumentMetadataEditor } from '../components/tools/DocumentMetadataEditor'
-import { FillFormsTool } from '../components/tools/FillFormsTool'
-import { ProfessionalPageNumbersTool } from '../components/tools/ProfessionalPageNumbersTool'
-import { HeadersFootersTool } from '../components/tools/HeadersFootersTool'
-import { AdvancedWatermarkTool } from '../components/tools/AdvancedWatermarkTool'
-import { NUpLayoutTool } from '../components/tools/NUpLayoutTool'
-import { InterleaveTool } from '../components/tools/InterleaveTool'
-import { OCRTool } from '../components/tools/OCRTool'
-import { SearchablePDFTool } from '../components/tools/SearchablePDFTool'
-import { TextExtractionTool } from '../components/tools/TextExtractionTool'
+import ViewPDFTool from '../components/tools/ViewPDFTool'
+import EnhancedMergeTool from '../components/tools/EnhancedMergeTool'
+import SplitTool from '../components/tools/SplitTool'
+import SmartSplitterTool from '../components/tools/SmartSplitterTool'
+import RotatePagesTool from '../components/tools/RotatePagesTool'
+import CropPagesTool from '../components/tools/CropPagesTool'
+import ReorderPagesTool from '../components/tools/ReorderPagesTool'
+import ExtractPagesTool from '../components/tools/ExtractPagesTool'
+import AdvancedPageExtractionTool from '../components/tools/AdvancedPageExtractionTool'
+import ConvertToPDFTool from '../components/tools/ConvertToPDFTool'
+import ConvertFromPDFTool from '../components/tools/ConvertFromPDFTool'
+import PDFCompressionTool from '../components/tools/PDFCompressionTool'
+import GrayscaleTool from '../components/tools/GrayscaleTool'
+import PosterizeTool from '../components/tools/PosterizeTool'
+import DocumentMetadataEditor from '../components/tools/DocumentMetadataEditor'
+import FillFormsTool from '../components/tools/FillFormsTool'
+import ProfessionalPageNumbersTool from '../components/tools/ProfessionalPageNumbersTool'
+import HeadersFootersTool from '../components/tools/HeadersFootersTool'
+import AdvancedWatermarkTool from '../components/tools/AdvancedWatermarkTool'
+import NUpLayoutTool from '../components/tools/NUpLayoutTool'
+import InterleaveTool from '../components/tools/InterleaveTool'
+import OCRTool from '../components/tools/OCRTool'
+import SearchablePDFTool from '../components/tools/SearchablePDFTool'
+import TextExtractionTool from '../components/tools/TextExtractionTool'
 
 interface Tool {
   id: string
@@ -48,66 +69,50 @@ interface Tool {
 }
 
 const tools: Tool[] = [
-  // Viewer & Organize
-  { id: 'view', name: 'View PDF', description: 'View and navigate PDF documents', icon: Eye, category: 'viewer', component: ViewPDFTool },
-  { id: 'merge', name: 'Merge PDFs', description: 'Combine multiple PDFs into one', icon: Merge, category: 'viewer', component: EnhancedMergeTool },
-  { id: 'split', name: 'Split PDF', description: 'Split PDF into multiple files', icon: SplitSquareHorizontal, category: 'viewer', component: SplitTool },
-  { id: 'smart-split', name: 'Smart Split', description: 'Split by size, bookmarks, or text', icon: SplitSquareHorizontal, category: 'viewer', component: SmartSplitterTool },
-  { id: 'reorder', name: 'Reorder Pages', description: 'Rearrange pages in your PDF', icon: Layers, category: 'viewer', component: ReorderPagesTool },
-  { id: 'extract', name: 'Extract Pages', description: 'Extract specific pages', icon: FileDown, category: 'viewer', component: ExtractPagesTool },
-  { id: 'advanced-extract', name: 'Advanced Extract', description: 'Extract pages by criteria', icon: FileDown, category: 'viewer', component: AdvancedPageExtractionTool },
-
-  // Edit
-  { id: 'rotate', name: 'Rotate Pages', description: 'Rotate pages 90, 180, or 270 degrees', icon: RotateCw, category: 'edit', component: RotatePagesTool },
-  { id: 'crop', name: 'Crop Pages', description: 'Crop pages to specific dimensions', icon: Crop, category: 'edit', component: CropPagesTool },
-  { id: 'page-numbers', name: 'Page Numbers', description: 'Add page numbers to your PDF', icon: Hash, category: 'edit', component: ProfessionalPageNumbersTool },
-  { id: 'headers-footers', name: 'Headers & Footers', description: 'Add headers and footers', icon: Type, category: 'edit', component: HeadersFootersTool },
-  { id: 'watermark', name: 'Watermark', description: 'Add text or image watermarks', icon: Droplets, category: 'edit', component: AdvancedWatermarkTool },
-
-  // Layout
-  { id: 'nup', name: 'N-Up Layout', description: 'Multiple pages per sheet', icon: Grid3x3, category: 'layout', component: NUpLayoutTool },
-  { id: 'interleave', name: 'Interleave', description: 'Interleave pages from multiple PDFs', icon: Layers, category: 'layout', component: InterleaveTool },
-  { id: 'posterize', name: 'Posterize', description: 'Split large pages into tiles', icon: Grid3x3, category: 'layout', component: PosterizeTool },
-
-  // Convert
-  { id: 'convert-to-pdf', name: 'Convert to PDF', description: 'Convert images to PDF', icon: Image, category: 'convert', component: ConvertToPDFTool },
-  { id: 'convert-from-pdf', name: 'Convert from PDF', description: 'Convert PDF pages to images', icon: Image, category: 'convert', component: ConvertFromPDFTool },
-  { id: 'grayscale', name: 'Grayscale', description: 'Convert PDF to grayscale', icon: Palette, category: 'convert', component: GrayscaleTool },
-
-  // Forms
-  { id: 'fill-forms', name: 'Fill Forms', description: 'Fill out PDF forms', icon: PenTool, category: 'forms', component: FillFormsTool },
-
-  // Security
-  { id: 'encrypt', name: 'Encrypt PDF', description: 'Password protect your PDF', icon: Lock, category: 'security', component: EncryptPDFTool },
-  { id: 'decrypt', name: 'Decrypt PDF', description: 'Remove password protection', icon: Unlock, category: 'security', component: DecryptPDFTool },
-  { id: 'security', name: 'Security Permissions', description: 'Manage PDF permissions', icon: ShieldCheck, category: 'security', component: PDFSecurityTool },
-  { id: 'metadata', name: 'Metadata', description: 'Edit PDF metadata', icon: FileText, category: 'security', component: DocumentMetadataEditor },
-
-  // Optimize
-  { id: 'compress', name: 'Compress PDF', description: 'Reduce PDF file size', icon: Minimize, category: 'optimize', component: PDFCompressionTool },
-
-  // OCR
-  { id: 'ocr', name: 'OCR Text Recognition', description: 'Extract text with optical character recognition', icon: Scan, category: 'ocr', component: OCRTool },
-  { id: 'searchable-pdf', name: 'Searchable PDF', description: 'Create searchable PDFs with OCR text layers', icon: Search, category: 'ocr', component: SearchablePDFTool },
-  { id: 'text-extraction', name: 'Text Extraction', description: 'Extract and analyze text content from PDFs', icon: FileText, category: 'ocr', component: TextExtractionTool },
-
-  // Advanced
-  { id: 'annotations', name: 'Remove Annotations', description: 'Remove annotations', icon: MessageSquare, category: 'advanced', comingSoon: true },
-  { id: 'remove-blank', name: 'Remove Blank Pages', description: 'Remove blank pages', icon: FileX, category: 'advanced', comingSoon: true },
-  { id: 'batch', name: 'Batch Operations', description: 'Process multiple files', icon: Layers, category: 'advanced', comingSoon: true },
-  { id: 'project', name: 'Project Snapshots', description: 'Save/load project state', icon: Settings, category: 'advanced', comingSoon: true }
+  { id: 'view', name: 'View PDF', description: 'Open, inspect, zoom, and search page content.', icon: Eye, category: 'viewer', component: ViewPDFTool },
+  { id: 'merge', name: 'Merge PDFs', description: 'Combine multiple PDFs into a single packet.', icon: Merge, category: 'viewer', component: EnhancedMergeTool },
+  { id: 'split', name: 'Split PDF', description: 'Break files into ranges or separate outputs.', icon: SplitSquareHorizontal, category: 'viewer', component: SplitTool },
+  { id: 'smart-split', name: 'Smart Split', description: 'Split by size, bookmark, or text-driven sections.', icon: SplitSquareHorizontal, category: 'viewer', component: SmartSplitterTool },
+  { id: 'reorder', name: 'Reorder Pages', description: 'Resequence pages visually before export.', icon: Layers, category: 'viewer', component: ReorderPagesTool },
+  { id: 'extract', name: 'Extract Pages', description: 'Pull selected pages into a new document.', icon: FileDown, category: 'viewer', component: ExtractPagesTool },
+  { id: 'advanced-extract', name: 'Advanced Extract', description: 'Target pages by criteria and repeated patterns.', icon: FileDown, category: 'viewer', component: AdvancedPageExtractionTool },
+  { id: 'rotate', name: 'Rotate Pages', description: 'Apply page rotation in focused or bulk passes.', icon: RotateCw, category: 'edit', component: RotatePagesTool },
+  { id: 'crop', name: 'Crop Pages', description: 'Trim page areas with preview-driven controls.', icon: Crop, category: 'edit', component: CropPagesTool },
+  { id: 'page-numbers', name: 'Page Numbers', description: 'Stamp ordered numbering with templates and offsets.', icon: Hash, category: 'edit', component: ProfessionalPageNumbersTool },
+  { id: 'headers-footers', name: 'Headers & Footers', description: 'Add repeated top and bottom metadata bands.', icon: Type, category: 'edit', component: HeadersFootersTool },
+  { id: 'watermark', name: 'Watermark', description: 'Overlay text or imagery across selected pages.', icon: Droplets, category: 'edit', component: AdvancedWatermarkTool },
+  { id: 'nup', name: 'N-Up Layout', description: 'Arrange many source pages onto each output sheet.', icon: Grid3x3, category: 'layout', component: NUpLayoutTool },
+  { id: 'interleave', name: 'Interleave', description: 'Alternate pages from multiple documents.', icon: Layers, category: 'layout', component: InterleaveTool },
+  { id: 'posterize', name: 'Posterize', description: 'Tile oversized artwork across printable sheets.', icon: Grid3x3, category: 'layout', component: PosterizeTool },
+  { id: 'convert-to-pdf', name: 'Convert to PDF', description: 'Build PDFs from images, text, and DOCX input.', icon: Image, category: 'convert', component: ConvertToPDFTool },
+  { id: 'convert-from-pdf', name: 'Convert from PDF', description: 'Export pages to PNG, JPEG, or WebP.', icon: Image, category: 'convert', component: ConvertFromPDFTool },
+  { id: 'grayscale', name: 'Grayscale', description: 'Rebuild pages with grayscale output and preview.', icon: Palette, category: 'convert', component: GrayscaleTool },
+  { id: 'fill-forms', name: 'Fill Forms', description: 'Detect and populate interactive form fields.', icon: PenTool, category: 'forms', component: FillFormsTool },
+  { id: 'encrypt', name: 'Encrypt PDF', description: 'Password protection is planned once client-side support is added.', icon: Lock, category: 'security', comingSoon: true },
+  { id: 'decrypt', name: 'Decrypt PDF', description: 'Password removal is planned once client-side support is added.', icon: Unlock, category: 'security', comingSoon: true },
+  { id: 'security', name: 'Security Permissions', description: 'Advanced permission editing is planned.', icon: ShieldCheck, category: 'security', comingSoon: true },
+  { id: 'metadata', name: 'Metadata', description: 'Review and edit document metadata fields.', icon: FileText, category: 'security', component: DocumentMetadataEditor },
+  { id: 'compress', name: 'Compress PDF', description: 'Reduce weight and optimize multi-file payloads.', icon: Minimize, category: 'optimize', component: PDFCompressionTool },
+  { id: 'ocr', name: 'OCR Text Recognition', description: 'Extract text from scans with confidence overlays.', icon: Scan, category: 'ocr', component: OCRTool },
+  { id: 'searchable-pdf', name: 'Searchable PDF', description: 'Add OCR text layers while preserving page appearance.', icon: Search, category: 'ocr', component: SearchablePDFTool },
+  { id: 'text-extraction', name: 'Text Extraction', description: 'Extract, filter, and analyze document text.', icon: FileText, category: 'ocr', component: TextExtractionTool },
+  { id: 'annotations', name: 'Remove Annotations', description: 'Annotation cleanup is on the roadmap.', icon: MessageSquare, category: 'advanced', comingSoon: true },
+  { id: 'remove-blank', name: 'Remove Blank Pages', description: 'Automatic blank-page cleanup is planned.', icon: FileX, category: 'advanced', comingSoon: true },
+  { id: 'batch', name: 'Batch Operations', description: 'Queued multi-file pipelines are planned.', icon: Layers, category: 'advanced', comingSoon: true },
+  { id: 'project', name: 'Project Snapshots', description: 'Save and restore session state in a later release.', icon: Settings, category: 'advanced', comingSoon: true }
 ]
 
 const categories = [
-  { id: 'viewer', name: 'Viewer & Organize', icon: Eye, color: 'bg-blue-500' },
-  { id: 'edit', name: 'Edit', icon: Edit, color: 'bg-green-500' },
-  { id: 'layout', name: 'Layout', icon: Layout, color: 'bg-purple-500' },
-  { id: 'convert', name: 'Convert', icon: RefreshCw, color: 'bg-orange-500' },
-  { id: 'forms', name: 'Forms', icon: FileText, color: 'bg-pink-500' },
-  { id: 'security', name: 'Security', icon: Shield, color: 'bg-red-500' },
-  { id: 'optimize', name: 'Optimize', icon: Zap, color: 'bg-yellow-500' },
-  { id: 'ocr', name: 'OCR', icon: Scan, color: 'bg-indigo-500' },
-  { id: 'advanced', name: 'Advanced', icon: Settings, color: 'bg-gray-500' }
+  { id: 'all', name: 'All Lanes', icon: Wrench, accent: 'Linear pass', gradient: 'from-[#2a1e17] to-[#594235]' },
+  { id: 'viewer', name: 'Viewer & Organize', icon: Eye, accent: 'Sort and inspect', gradient: 'from-[#d45d42] to-[#f2996b]' },
+  { id: 'edit', name: 'Edit', icon: Edit, accent: 'Mark and adjust', gradient: 'from-[#0f9f9b] to-[#65d8c4]' },
+  { id: 'layout', name: 'Layout', icon: Layout, accent: 'Print architecture', gradient: 'from-[#4b4db6] to-[#8e84f0]' },
+  { id: 'convert', name: 'Convert', icon: RefreshCw, accent: 'Format bridge', gradient: 'from-[#d98f2d] to-[#f3c15b]' },
+  { id: 'forms', name: 'Forms', icon: FileText, accent: 'Structured input', gradient: 'from-[#b04f90] to-[#dd85c7]' },
+  { id: 'security', name: 'Security', icon: Shield, accent: 'Guard rails', gradient: 'from-[#a14033] to-[#d66d5c]' },
+  { id: 'optimize', name: 'Optimize', icon: Zap, accent: 'Lean output', gradient: 'from-[#11795d] to-[#6fdfab]' },
+  { id: 'ocr', name: 'OCR', icon: Scan, accent: 'Machine reading', gradient: 'from-[#2d6586] to-[#74c7f1]' },
+  { id: 'advanced', name: 'Advanced', icon: Settings, accent: 'Roadmap lane', gradient: 'from-[#454545] to-[#8f8f8f]' }
 ]
 
 export function Tools() {
@@ -116,18 +121,21 @@ export function Tools() {
   const [searchQuery, setSearchQuery] = useState('')
   const selectedTool = searchParams.get('tool')
 
-  const filteredTools = tools.filter(tool => {
+  const filteredTools = useMemo(() => tools.filter((tool) => {
     const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory
-    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const query = searchQuery.trim().toLowerCase()
+    const matchesSearch = query.length === 0
+      || tool.name.toLowerCase().includes(query)
+      || tool.description.toLowerCase().includes(query)
     return matchesCategory && matchesSearch
-  })
+  }), [searchQuery, selectedCategory])
+
+  const activeCategory = categories.find((category) => category.id === selectedCategory) || categories[0]
+  const implementedCount = tools.filter((tool) => tool.component && !tool.comingSoon).length
+  const plannedCount = tools.filter((tool) => tool.comingSoon || !tool.component).length
 
   const handleToolClick = (tool: Tool) => {
-    if (tool.comingSoon || !tool.component) {
-      return
-    }
-    // Navigate to the specific tool
+    if (tool.comingSoon || !tool.component) return
     setSearchParams({ tool: tool.id })
   }
 
@@ -135,33 +143,26 @@ export function Tools() {
     setSearchParams({})
   }
 
-  // If a tool is selected and has a component, render it
   if (selectedTool) {
-    const tool = tools.find(t => t.id === selectedTool)
+    const tool = tools.find((entry) => entry.id === selectedTool)
     if (tool?.component) {
       const ToolComponent = tool.component
       return (
-        <div className="h-full flex flex-col">
-          {/* Breadcrumb */}
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <nav className="flex items-center space-x-2 text-sm">
-              <button
-                onClick={handleBackToTools}
-                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
-              >
+        <div className="page-shell">
+          <div className="card-strong overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--line)] px-5 py-5 sm:px-7">
+              <div>
+                <div className="section-label mb-2">Workbench mode</div>
+                <h1 className="text-3xl text-[color:var(--ink)]">{tool.name}</h1>
+              </div>
+              <button onClick={handleBackToTools} className="btn btn-secondary">
                 <ArrowLeft className="h-4 w-4" />
-                <span>Tools</span>
+                Back to tool atlas
               </button>
-              <span className="text-gray-400">/</span>
-              <span className="text-gray-900 dark:text-white font-medium">
-                {tool.name}
-              </span>
-            </nav>
-          </div>
-
-          {/* Tool Component */}
-          <div className="flex-1 overflow-auto">
-            <ToolComponent />
+            </div>
+            <div className="max-h-[calc(100vh-12rem)] overflow-auto">
+              <ToolComponent />
+            </div>
           </div>
         </div>
       )
@@ -169,143 +170,155 @@ export function Tools() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-          PDF Tools
-        </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400">
-          Choose from our comprehensive collection of PDF manipulation tools
-        </p>
-      </div>
+    <div className="page-shell">
+      <section className="hero-panel mb-6 p-5 sm:p-8">
+        <div className="grid gap-8 xl:grid-cols-[1.18fr_0.82fr]">
+          <div className="space-y-5">
+            <div className="section-label">Tool atlas</div>
+            <div className="max-w-3xl">
+              <h1 className="text-balance text-4xl leading-none text-[color:var(--ink)] sm:text-5xl lg:text-6xl">
+                A document workshop arranged in lanes, not a pile of random utilities.
+              </h1>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-[color:var(--ink-muted)] sm:text-lg">
+                Move from review to repair, layout, OCR, and export without losing context. Implemented tools open directly; roadmap items stay visible but clearly marked.
+              </p>
+            </div>
 
-      {/* Search and Filter */}
-      <div className="mb-8 space-y-4">
-        <div className="relative max-w-md">
-          <input
-            type="text"
-            placeholder="Search tools..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input pl-10"
-          />
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="card p-4">
+                <div className="text-3xl font-semibold text-[color:var(--ink)]">{implementedCount}</div>
+                <div className="mt-1 text-xs uppercase tracking-[0.24em] text-[color:var(--ink-muted)]">Live tools</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-3xl font-semibold text-[color:var(--ink)]">{plannedCount}</div>
+                <div className="mt-1 text-xs uppercase tracking-[0.24em] text-[color:var(--ink-muted)]">Planned lanes</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-3xl font-semibold text-[color:var(--ink)]">{filteredTools.length}</div>
+                <div className="mt-1 text-xs uppercase tracking-[0.24em] text-[color:var(--ink-muted)]">Current view</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="card p-5">
+              <div className={`mb-4 inline-flex rounded-full bg-gradient-to-r ${activeCategory.gradient} px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white`}>
+                Active lane
+              </div>
+              <h2 className="mb-2 text-2xl text-[color:var(--ink)]">{activeCategory.name}</h2>
+              <p className="text-sm leading-6 text-[color:var(--ink-muted)]">{activeCategory.accent}</p>
+            </div>
+            <div className="card p-5">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[color:var(--ink)]">
+                <Search className="h-4 w-4 text-[color:var(--accent)]" />
+                Search the workshop
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Try OCR, merge, crop, metadata…"
+                className="input"
+              />
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Category Filter */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === 'all'
-              ? 'bg-primary-600 text-white'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-          >
-            All Tools
-          </button>
+      <section className="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)]">
+        <aside className="space-y-3 xl:sticky xl:top-6 xl:self-start">
           {categories.map((category) => {
             const Icon = category.icon
+            const active = selectedCategory === category.id
+            const count = category.id === 'all'
+              ? tools.length
+              : tools.filter((tool) => tool.category === category.id).length
+
             return (
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === category.id
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
+                className={`tool-tile w-full ${active ? 'ring-2 ring-[rgba(212,93,66,0.18)]' : ''}`}
               >
-                <Icon className="h-4 w-4" />
-                <span>{category.name}</span>
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-[16px] bg-gradient-to-r ${category.gradient} text-white shadow-lg`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="text-lg text-[color:var(--ink)]">{category.name}</h2>
+                      <span className="pill shrink-0">{count}</span>
+                    </div>
+                    <p className="mt-1 text-sm leading-6 text-[color:var(--ink-muted)]">{category.accent}</p>
+                  </div>
+                </div>
               </button>
             )
           })}
-        </div>
-      </div>
+        </aside>
 
-      {/* Tools Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredTools.map((tool) => {
-          const Icon = tool.icon
-          const category = categories.find(c => c.id === tool.category)
-          const isAvailable = !!tool.component && !tool.comingSoon
-
-          return (
-            <button
-              key={tool.id}
-              onClick={() => handleToolClick(tool)}
-              disabled={!isAvailable}
-              className={`card p-6 text-left transition-all hover:shadow-lg group relative ${!isAvailable
-                ? 'opacity-60 cursor-not-allowed'
-                : 'hover:scale-105 cursor-pointer'
-                }`}
-            >
-              {tool.comingSoon && (
-                <div className="absolute top-2 right-2 px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-medium rounded">
-                  Soon
-                </div>
-              )}
-
-              {!tool.comingSoon && !tool.component && (
-                <div className="absolute top-2 right-2 px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded">
-                  Planned
-                </div>
-              )}
-
-              <div className={`w-12 h-12 ${category?.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                <Icon className="h-6 w-6 text-white" />
+        <div className="space-y-4">
+          <div className="card-strong p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="section-label mb-2">Current lane</div>
+                <h2 className="text-3xl text-[color:var(--ink)]">{activeCategory.name}</h2>
               </div>
+              <div className="pill">{filteredTools.filter((tool) => tool.component && !tool.comingSoon).length} ready now</div>
+            </div>
 
-              <h3 className={`font-semibold text-gray-900 dark:text-white mb-2 transition-colors ${isAvailable ? 'group-hover:text-primary-600 dark:group-hover:text-primary-400' : ''
-                }`}>
-                {tool.name}
-              </h3>
+            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+              {filteredTools.map((tool) => {
+                const Icon = tool.icon
+                const category = categories.find((entry) => entry.id === tool.category) || categories[0]
+                const isAvailable = !!tool.component && !tool.comingSoon
 
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {tool.description}
-              </p>
+                return (
+                  <button
+                    key={tool.id}
+                    onClick={() => handleToolClick(tool)}
+                    disabled={!isAvailable}
+                    className={`tool-tile ${!isAvailable ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                  >
+                    <div className="mb-5 flex items-start justify-between gap-3">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-[16px] bg-gradient-to-r ${category.gradient} text-white shadow-lg`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] ${
+                        isAvailable
+                          ? 'bg-[rgba(15,159,155,0.12)] text-[color:var(--accent-2)]'
+                          : 'bg-[rgba(212,93,66,0.12)] text-[color:var(--accent)]'
+                      }`}>
+                        {isAvailable ? 'Ready' : 'Planned'}
+                      </span>
+                    </div>
 
-              <div className="flex items-center justify-between mt-4">
-                <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                  {tool.category}
-                </span>
-                <div className="flex items-center space-x-2">
-                  {isAvailable && (
-                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                      Available
-                    </span>
-                  )}
-                  {isAvailable && (
-                    <svg className="h-4 w-4 text-gray-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  )}
+                    <h3 className="mb-2 text-2xl text-[color:var(--ink)]">{tool.name}</h3>
+                    <p className="text-sm leading-6 text-[color:var(--ink-muted)]">{tool.description}</p>
+
+                    <div className="mt-5 flex items-center justify-between text-xs uppercase tracking-[0.22em] text-[color:var(--ink-muted)]">
+                      <span>{category.name}</span>
+                      <span>{isAvailable ? 'Open' : 'Roadmap'}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {filteredTools.length === 0 && (
+              <div className="rounded-[24px] border border-dashed border-[color:var(--line-strong)] p-10 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[rgba(212,93,66,0.12)] text-[color:var(--accent)]">
+                  <Search className="h-6 w-6" />
                 </div>
+                <h3 className="text-2xl text-[color:var(--ink)]">No matches in this lane</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[color:var(--ink-muted)]">
+                  Try another category or use a broader term. The atlas only shows tools whose name or description matches your query.
+                </p>
               </div>
-            </button>
-          )
-        })}
-      </div>
-
-      {filteredTools.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            )}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
-            No tools found
-          </h3>
-          <p className="text-gray-500 dark:text-gray-400">
-            Try adjusting your search or filter criteria
-          </p>
         </div>
-      )}
+      </section>
     </div>
   )
 }

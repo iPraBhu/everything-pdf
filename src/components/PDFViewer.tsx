@@ -90,6 +90,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       const renderContext = {
         canvasContext: context,
         viewport: viewport,
+        canvas,
       }
       
       await page.render(renderContext).promise

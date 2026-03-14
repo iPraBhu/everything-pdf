@@ -287,10 +287,23 @@ const HeadersFootersTool: React.FC = () => {
 
       updateJob(jobId, { progress: 70 })
 
-      // TODO: Implement addHeadersFooters in workerManager
-      // For now, we'll simulate the operation
-      console.warn('PDF headers/footers not yet implemented in workerManager')
-      const result = uint8Array // Placeholder - would normally have headers/footers added
+      const result = await workerManager.submitJob({
+        type: 'headers-footers',
+        file: uint8Array,
+        options: {
+          pageIndices: affectedPages.map(page => page - 1),
+          header: options.enableHeader ? options.headerText : { left: '', center: '', right: '' },
+          footer: options.enableFooter ? options.footerText : { left: '', center: '', right: '' },
+          fontSize: options.font.size,
+          color: options.font.color,
+          marginTop: options.positioning.headerMarginTop,
+          marginBottom: options.positioning.footerMarginBottom,
+          leftMargin: options.positioning.leftMargin,
+          rightMargin: options.positioning.rightMargin,
+          totalPages,
+          filename: selectedFile.name.replace(/\.pdf$/i, '')
+        }
+      })
       
       updateJob(jobId, { progress: 90 })
 
@@ -315,7 +328,7 @@ const HeadersFootersTool: React.FC = () => {
         endTime: Date.now()
       })
 
-      console.log('Headers/footers completed (simulated)', { headerFooterParams })
+      console.log('Headers/footers completed', { headerFooterParams })
 
     } catch (error) {
       console.error('Error adding headers/footers:', error)

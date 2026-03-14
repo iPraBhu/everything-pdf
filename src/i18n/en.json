@@ -28,7 +28,7 @@
     "toggleTheme": "Toggle theme"
   },
   "home": {
-    "title": "Free PDF Tools",
+    "title": "Free Everything PDF",
     "subtitle": "Privacy-first PDF manipulation studio",
     "description": "All processing happens in your browser. No uploads, no accounts, no servers.",
     "features": {
@@ -122,7 +122,7 @@
   },
   "privacy": {
     "title": "Your Privacy is Guaranteed",
-    "description": "Free PDF Tools operates entirely in your browser. This means:",
+    "description": "Free Everything PDF operates entirely in your browser. This means:",
     "points": [
       "Your files never leave your device",
       "No data is sent to any servers",

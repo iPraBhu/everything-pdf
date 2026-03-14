@@ -143,6 +143,7 @@ export async function renderPageToCanvas(
   const renderContext = {
     canvasContext: context,
     viewport: viewport,
+    canvas,
   }
   
   try {

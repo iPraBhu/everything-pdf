@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, Eye, ZoomIn, ZoomOut, RotateCw, Download, ChevronLeft, ChevronRight, Maximize2, Minimize2, Search, FileText, Info, Layers, Navigation } from 'lucide-react'
+import { Upload, Eye, ZoomIn, ZoomOut, RotateCw, Download, ChevronLeft, ChevronRight, Maximize2, Minimize2, Search, FileText, Info, Layers, Navigation, AlertCircle } from 'lucide-react'
 import { useAppStore } from '../../state/store'
 
 interface ViewerState {
@@ -136,7 +136,8 @@ const ViewPDFTool: React.FC = () => {
       // Render page
       const renderContext: any = {
         canvasContext: context,
-        viewport: scaledViewport
+        viewport: scaledViewport,
+        canvas
       }
 
       await page.render(renderContext).promise
@@ -185,11 +186,25 @@ const ViewPDFTool: React.FC = () => {
     if (!pdfDocument || !searchQuery) return
 
     try {
-      const results = []
-      // TODO: Implement text search across PDF pages
-      // For now, this is a placeholder
-      console.warn('PDF text search not yet implemented')
+      const { searchPageText } = await import('../../lib/pdf')
+      const results: Array<{ pageNumber: number; matches: number }> = []
+
+      for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
+        const page = await pdfDocument.getPage(pageNumber)
+        const matches = await searchPageText(page, searchQuery)
+
+        if (matches.length > 0) {
+          results.push({ pageNumber, matches: matches.length })
+        }
+      }
+
       setSearchResults(results)
+
+      if (results.length > 0) {
+        await handlePageChange(results[0].pageNumber)
+      } else {
+        setError(`No matches found for "${searchQuery}"`)
+      }
     } catch (error) {
       console.error('Error searching PDF:', error)
     }

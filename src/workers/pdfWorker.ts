@@ -3,7 +3,7 @@ import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib'
 import * as pdfjsLib from 'pdfjs-dist'
 
 // Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.js', import.meta.url).href
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href
 
 export interface PDFWorkerAPI {
   getPageCount: (pdfData: Uint8Array) => Promise<number>
@@ -37,6 +37,44 @@ export interface PDFWorkerAPI {
 }
 
 class PDFWorker implements PDFWorkerAPI {
+  private normalizeColor(input: any, fallback = { r: 0, g: 0, b: 0 }) {
+    if (typeof input === 'string' && /^#?[0-9a-f]{6}$/i.test(input)) {
+      const hex = input.startsWith('#') ? input.slice(1) : input
+      return {
+        r: parseInt(hex.slice(0, 2), 16) / 255,
+        g: parseInt(hex.slice(2, 4), 16) / 255,
+        b: parseInt(hex.slice(4, 6), 16) / 255
+      }
+    }
+
+    if (input && typeof input.r === 'number' && typeof input.g === 'number' && typeof input.b === 'number') {
+      return input
+    }
+
+    return fallback
+  }
+
+  private resolveTemplate(
+    template: string,
+    context: {
+      pageNumber: number
+      totalPages: number
+      filename?: string
+    }
+  ) {
+    const now = new Date()
+
+    return template
+      .replace(/\{page\}/g, String(context.pageNumber))
+      .replace(/\{pageNumber\}/g, String(context.pageNumber))
+      .replace(/\{n\}/g, String(context.pageNumber))
+      .replace(/\{total\}/g, String(context.totalPages))
+      .replace(/\{totalPages\}/g, String(context.totalPages))
+      .replace(/\{date\}/g, now.toLocaleDateString())
+      .replace(/\{time\}/g, now.toLocaleTimeString())
+      .replace(/\{filename\}/g, context.filename || '')
+  }
+
   async getPageCount(pdfData: Uint8Array): Promise<number> {
     try {
       const pdfDoc = await PDFDocument.load(pdfData)
@@ -68,7 +106,8 @@ class PDFWorker implements PDFWorkerAPI {
       // Render page to canvas
       const renderContext: any = {
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
+        canvas
       }
 
       await page.render(renderContext).promise
@@ -222,6 +261,7 @@ class PDFWorker implements PDFWorkerAPI {
 
   async addPageNumbers(pdfData: Uint8Array, options: any = {}): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfData)
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
     const {
       pageIndices = Array.from({ length: pdfDoc.getPageCount() }, (_, i) => i),
       startNumber = 1,
@@ -230,6 +270,7 @@ class PDFWorker implements PDFWorkerAPI {
       position = 'bottom-center',
       format = '{page}' // Can be '{page}', '{page} of {total}', etc.
     } = options
+    const normalizedColor = this.normalizeColor(color)
 
     const totalPages = pdfDoc.getPageCount()
 
@@ -239,9 +280,11 @@ class PDFWorker implements PDFWorkerAPI {
       const { width, height } = page.getSize()
 
       const pageNumber = startNumber + i
-      const text = format
-        .replace('{page}', pageNumber.toString())
-        .replace('{total}', totalPages.toString())
+      const text = this.resolveTemplate(format, {
+        pageNumber,
+        totalPages
+      })
+      const textWidth = font.widthOfTextAtSize(text, fontSize)
 
       let x: number, y: number
 
@@ -250,20 +293,20 @@ class PDFWorker implements PDFWorkerAPI {
           x = 50; y = height - 30
           break
         case 'top-center':
-          x = width / 2; y = height - 30
+          x = (width - textWidth) / 2; y = height - 30
           break
         case 'top-right':
-          x = width - 50; y = height - 30
+          x = width - 50 - textWidth; y = height - 30
           break
         case 'bottom-left':
           x = 50; y = 30
           break
         case 'bottom-right':
-          x = width - 50; y = 30
+          x = width - 50 - textWidth; y = 30
           break
         case 'bottom-center':
         default:
-          x = width / 2; y = 30
+          x = (width - textWidth) / 2; y = 30
           break
       }
 
@@ -271,7 +314,8 @@ class PDFWorker implements PDFWorkerAPI {
         x,
         y,
         size: fontSize,
-        color: rgb(color.r, color.g, color.b),
+        font,
+        color: rgb(normalizedColor.r, normalizedColor.g, normalizedColor.b),
       })
     }
 
@@ -280,6 +324,7 @@ class PDFWorker implements PDFWorkerAPI {
 
   async addHeadersFooters(pdfData: Uint8Array, options: any = {}): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfData)
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
     const {
       pageIndices = Array.from({ length: pdfDoc.getPageCount() }, (_, i) => i),
       header = { left: '', center: '', right: '' },
@@ -287,62 +332,82 @@ class PDFWorker implements PDFWorkerAPI {
       fontSize = 10,
       color = { r: 0, g: 0, b: 0 },
       marginTop = 30,
-      marginBottom = 30
+      marginBottom = 30,
+      leftMargin = 50,
+      rightMargin = 50,
+      filename = ''
     } = options
+    const normalizedColor = this.normalizeColor(color)
+    const totalPages = pdfDoc.getPageCount()
 
-    for (const pageIndex of pageIndices) {
+    for (let i = 0; i < pageIndices.length; i++) {
+      const pageIndex = pageIndices[i]
       const page = pdfDoc.getPage(pageIndex)
       const { width, height } = page.getSize()
+      const pageNumber = pageIndex + 1
+
+      const headerLeft = this.resolveTemplate(header.left || '', { pageNumber, totalPages, filename })
+      const headerCenter = this.resolveTemplate(header.center || '', { pageNumber, totalPages, filename })
+      const headerRight = this.resolveTemplate(header.right || '', { pageNumber, totalPages, filename })
+      const footerLeft = this.resolveTemplate(footer.left || '', { pageNumber, totalPages, filename })
+      const footerCenter = this.resolveTemplate(footer.center || '', { pageNumber, totalPages, filename })
+      const footerRight = this.resolveTemplate(footer.right || '', { pageNumber, totalPages, filename })
 
       // Draw header
-      if (header.left) {
-        page.drawText(header.left, {
-          x: 50,
+      if (headerLeft) {
+        page.drawText(headerLeft, {
+          x: leftMargin,
           y: height - marginTop,
           size: fontSize,
-          color: rgb(color.r, color.g, color.b),
+          font,
+          color: rgb(normalizedColor.r, normalizedColor.g, normalizedColor.b),
         })
       }
-      if (header.center) {
-        page.drawText(header.center, {
-          x: width / 2,
+      if (headerCenter) {
+        page.drawText(headerCenter, {
+          x: (width - font.widthOfTextAtSize(headerCenter, fontSize)) / 2,
           y: height - marginTop,
           size: fontSize,
-          color: rgb(color.r, color.g, color.b),
+          font,
+          color: rgb(normalizedColor.r, normalizedColor.g, normalizedColor.b),
         })
       }
-      if (header.right) {
-        page.drawText(header.right, {
-          x: width - 50,
+      if (headerRight) {
+        page.drawText(headerRight, {
+          x: width - rightMargin - font.widthOfTextAtSize(headerRight, fontSize),
           y: height - marginTop,
           size: fontSize,
-          color: rgb(color.r, color.g, color.b),
+          font,
+          color: rgb(normalizedColor.r, normalizedColor.g, normalizedColor.b),
         })
       }
 
       // Draw footer
-      if (footer.left) {
-        page.drawText(footer.left, {
-          x: 50,
+      if (footerLeft) {
+        page.drawText(footerLeft, {
+          x: leftMargin,
           y: marginBottom,
           size: fontSize,
-          color: rgb(color.r, color.g, color.b),
+          font,
+          color: rgb(normalizedColor.r, normalizedColor.g, normalizedColor.b),
         })
       }
-      if (footer.center) {
-        page.drawText(footer.center, {
-          x: width / 2,
+      if (footerCenter) {
+        page.drawText(footerCenter, {
+          x: (width - font.widthOfTextAtSize(footerCenter, fontSize)) / 2,
           y: marginBottom,
           size: fontSize,
-          color: rgb(color.r, color.g, color.b),
+          font,
+          color: rgb(normalizedColor.r, normalizedColor.g, normalizedColor.b),
         })
       }
-      if (footer.right) {
-        page.drawText(footer.right, {
-          x: width - 50,
+      if (footerRight) {
+        page.drawText(footerRight, {
+          x: width - rightMargin - font.widthOfTextAtSize(footerRight, fontSize),
           y: marginBottom,
           size: fontSize,
-          color: rgb(color.r, color.g, color.b),
+          font,
+          color: rgb(normalizedColor.r, normalizedColor.g, normalizedColor.b),
         })
       }
     }
@@ -837,36 +902,30 @@ class PDFWorker implements PDFWorkerAPI {
 
   async encryptPDF(
     pdfData: Uint8Array,
-    userPassword: string,
-    ownerPassword?: string,
-    permissions?: any
+    _userPassword: string,
+    _ownerPassword?: string,
+    _permissions?: any
   ): Promise<Uint8Array> {
-    const pdfDoc = await PDFDocument.load(pdfData)
-
-    const standardPermissions = permissions || {
-      modifying: false,
-      copying: false,
-      printing: false
-    }
-
-    pdfDoc.encrypt({
-      userPassword,
-      ownerPassword: ownerPassword || userPassword,
-      permissions: standardPermissions,
-    })
-
-    return await pdfDoc.save()
+    throw new Error('Password-based PDF encryption is not supported by the current client-side PDF stack.')
   }
 
   async decryptPDF(pdfData: Uint8Array, password: string): Promise<Uint8Array> {
     try {
-      // Load with password (decrypts in memory)
-      const pdfDoc = await PDFDocument.load(pdfData, { password })
-      // Saving without calling encrypt() will remove the encryption
-      return await pdfDoc.save()
+      const loadingTask = pdfjsLib.getDocument({
+        data: pdfData,
+        password
+      })
+
+      const pdfDocument = await loadingTask.promise
+      await pdfDocument.destroy()
+
+      throw new Error('Password validation succeeded, but true PDF decryption/export is not supported by the current client-side PDF stack.')
     } catch (error) {
       console.error('Error decrypting PDF:', error)
-      throw new Error('Failed to decrypt PDF. Please check the password.')
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error('Failed to validate the password for this PDF.')
     }
   }
 
@@ -933,17 +992,15 @@ class PDFWorker implements PDFWorkerAPI {
       // Load with pdf.js to analyze encryption
       const loadingTask = pdfjsLib.getDocument({ data: pdfData })
       const pdfDocument = await loadingTask.promise
-
-      // @ts-ignore - accessing internal property if needed, or use public API
-      // In newer pdf.js, we might need to check permissions differently
-      // For now, returning basic info
+      const permissions = await pdfDocument.getPermissions()
+      await pdfDocument.destroy()
 
       return {
-        isEncrypted: true, // If we can load it without password, it might not be encrypted or has empty password
-        // This is a simplified implementation
-        canPrint: true,
-        canCopy: true,
-        canModify: true
+        isEncrypted: false,
+        isPasswordProtected: false,
+        canPrint: permissions ? permissions.length > 0 : true,
+        canCopy: permissions ? permissions.length > 0 : true,
+        canModify: permissions ? permissions.length > 0 : true
       }
     } catch (error: any) {
       if (error.name === 'PasswordException') {

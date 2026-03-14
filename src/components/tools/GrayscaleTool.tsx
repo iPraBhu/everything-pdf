@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Upload, Download, RefreshCw, Eye, EyeOff, Palette, RotateCw, Grid3x3, Sliders, Settings } from 'lucide-react'
+import { PDFDocument } from 'pdf-lib'
 import { useAppStore } from '../../state/store'
 import { useJobsStore } from '../../state/jobs'
 import { workerManager } from '../../lib/workerManager'
@@ -197,6 +198,97 @@ const GrayscaleTool: React.FC = () => {
     })
   }
 
+  const imageDataToJpegBytes = (imageData: ImageData, quality: number): Promise<Uint8Array> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+
+      if (!ctx) {
+        reject(new Error('Unable to create a canvas context for grayscale conversion.'))
+        return
+      }
+
+      canvas.width = imageData.width
+      canvas.height = imageData.height
+      ctx.putImageData(imageData, 0, 0)
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          reject(new Error('Failed to encode processed image data.'))
+          return
+        }
+
+        resolve(new Uint8Array(await blob.arrayBuffer()))
+      }, 'image/jpeg', quality)
+    })
+  }
+
+  const getPagesToProcess = (): number[] => {
+    if (!selectedFile) return []
+
+    switch (options.pages) {
+      case 'all':
+        return Array.from({ length: selectedFile.pageCount }, (_, i) => i)
+      case 'range':
+        try {
+          const pages = new Set<number>()
+          const ranges = options.pageRange.split(',').map(s => s.trim()).filter(Boolean)
+
+          for (const range of ranges) {
+            if (range.includes('-')) {
+              const [start, end] = range.split('-').map(s => parseInt(s.trim(), 10) - 1)
+              for (let i = start; i <= Math.min(end, selectedFile.pageCount - 1); i++) {
+                if (i >= 0) pages.add(i)
+              }
+            } else {
+              const page = parseInt(range, 10) - 1
+              if (page >= 0 && page < selectedFile.pageCount) {
+                pages.add(page)
+              }
+            }
+          }
+
+          return Array.from(pages).sort((a, b) => a - b)
+        } catch (error) {
+          console.error('Error parsing page range:', error)
+          return Array.from({ length: selectedFile.pageCount }, (_, i) => i)
+        }
+      case 'odd':
+        return Array.from({ length: selectedFile.pageCount }, (_, i) => i).filter(i => i % 2 === 0)
+      case 'even':
+        return Array.from({ length: selectedFile.pageCount }, (_, i) => i).filter(i => i % 2 === 1)
+      default:
+        return []
+    }
+  }
+
+  const buildGrayscalePdf = async (pdfData: Uint8Array, pagesToProcess: number[]): Promise<Uint8Array> => {
+    const outputPdf = await PDFDocument.create()
+    const processSet = new Set(pagesToProcess)
+    const renderScale = 2.0
+    const jpegQuality = (options.outputFormat === 'optimize' ? options.quality : 95) / 100
+
+    for (let pageIndex = 0; pageIndex < selectedFile.pageCount; pageIndex++) {
+      const imageData = await workerManager.renderPageAsImage(pdfData, pageIndex, { scale: renderScale })
+      const processedImage = processSet.has(pageIndex)
+        ? applyGrayscaleFilter(imageData)
+        : imageData
+
+      const jpegBytes = await imageDataToJpegBytes(processedImage, jpegQuality)
+      const embeddedImage = await outputPdf.embedJpg(jpegBytes)
+      const page = outputPdf.addPage([imageData.width / renderScale, imageData.height / renderScale])
+
+      page.drawImage(embeddedImage, {
+        x: 0,
+        y: 0,
+        width: page.getWidth(),
+        height: page.getHeight()
+      })
+    }
+
+    return outputPdf.save()
+  }
+
   const handleFileSelect = async (file: File) => {
     if (file.type !== 'application/pdf') {
       alert('Please select a PDF file.')
@@ -275,57 +367,19 @@ const GrayscaleTool: React.FC = () => {
 
       updateJob(jobId, { progress: 20 })
 
-      // Determine which pages to process
-      let pagesToProcess: number[] = []
-      
-      switch (options.pages) {
-        case 'all':
-          pagesToProcess = Array.from({ length: selectedFile.pageCount }, (_, i) => i)
-          break
-        case 'range':
-          // Parse page range (e.g., "1-3,5,7-9")
-          try {
-            const ranges = options.pageRange.split(',').map(s => s.trim())
-            for (const range of ranges) {
-              if (range.includes('-')) {
-                const [start, end] = range.split('-').map(s => parseInt(s.trim()) - 1)
-                for (let i = start; i <= Math.min(end, selectedFile.pageCount - 1); i++) {
-                  if (i >= 0) pagesToProcess.push(i)
-                }
-              } else {
-                const page = parseInt(range) - 1
-                if (page >= 0 && page < selectedFile.pageCount) {
-                  pagesToProcess.push(page)
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Error parsing page range:', error)
-            pagesToProcess = Array.from({ length: selectedFile.pageCount }, (_, i) => i)
-          }
-          break
-        case 'odd':
-          pagesToProcess = Array.from({ length: selectedFile.pageCount }, (_, i) => i).filter(i => i % 2 === 0)
-          break
-        case 'even':
-          pagesToProcess = Array.from({ length: selectedFile.pageCount }, (_, i) => i).filter(i => i % 2 === 1)
-          break
-      }
+      const pagesToProcess = getPagesToProcess()
 
       updateJob(jobId, { progress: 40 })
 
-      // For now, we'll simulate the conversion
-      console.warn('Grayscale conversion not yet implemented in workerManager')
-      
-      updateJob(jobId, { progress: 80 })
+      const grayscaleData = await buildGrayscalePdf(selectedFile.data, pagesToProcess)
 
-      // Create grayscale PDF placeholder
-      const grayscaleData = new Uint8Array([
-        0x25, 0x50, 0x44, 0x46, // PDF header
-        // ... actual grayscale PDF content would be generated here
-      ])
+      updateJob(jobId, { progress: 80 })
       
       const outputFileName = selectedFile.name.replace(/\.pdf$/i, '_grayscale.pdf')
+      const grayscaleBuffer = grayscaleData.buffer.slice(
+        grayscaleData.byteOffset,
+        grayscaleData.byteOffset + grayscaleData.byteLength
+      ) as ArrayBuffer
       
       const grayscaleFile = {
         id: `grayscale-${Date.now()}`,
@@ -333,8 +387,8 @@ const GrayscaleTool: React.FC = () => {
         size: grayscaleData.byteLength,
         type: 'application/pdf',
         lastModified: Date.now(),
-        file: new File([grayscaleData], outputFileName, { type: 'application/pdf' }),
-        pageCount: pagesToProcess.length,
+        file: new File([grayscaleBuffer], outputFileName, { type: 'application/pdf' }),
+        pageCount: selectedFile.pageCount,
         data: grayscaleData
       } as any
       
@@ -346,7 +400,7 @@ const GrayscaleTool: React.FC = () => {
         endTime: Date.now()
       })
 
-      console.log('Grayscale conversion completed (simulated)', {
+      console.log('Grayscale conversion completed', {
         method: options.method,
         pages: pagesToProcess.length,
         options

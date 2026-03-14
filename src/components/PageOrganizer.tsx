@@ -51,6 +51,7 @@ export const PageOrganizer: React.FC<PageOrganizerProps> = ({
       const renderContext = {
         canvasContext: context,
         viewport: viewport,
+        canvas,
       }
       
       await page.render(renderContext).promise

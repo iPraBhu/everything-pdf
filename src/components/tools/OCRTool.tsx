@@ -357,8 +357,6 @@ const OCRTool: React.FC = () => {
         
         setOcrProgress(prev => prev ? { ...prev, stage: 'postprocessing', stageProgress: 90 } : null)
         
-        // Small delay to simulate processing
-        await new Promise(resolve => setTimeout(resolve, 500))
       }
 
       setOcrResults(results)
@@ -367,14 +365,15 @@ const OCRTool: React.FC = () => {
       // Create searchable PDF if requested
       if (options.outputFormat === 'searchable' || options.outputFormat === 'both') {
         updateJob(jobId, { progress: 90 })
-
-        // Create searchable PDF placeholder
-        const searchablePdfData = new Uint8Array([
-          0x25, 0x50, 0x44, 0x46, // PDF header
-          // ... actual searchable PDF content would be generated here
-        ])
+        const searchablePdfData = await workerManager.createSearchablePDF(selectedFile.data, {
+          language: options.language.join('+')
+        })
         
         const outputFileName = selectedFile.name.replace(/\.pdf$/i, '_searchable.pdf')
+        const searchablePdfBuffer = searchablePdfData.buffer.slice(
+          searchablePdfData.byteOffset,
+          searchablePdfData.byteOffset + searchablePdfData.byteLength
+        ) as ArrayBuffer
         
         const searchablePdf = {
           id: `ocr-searchable-${Date.now()}`,
@@ -382,7 +381,7 @@ const OCRTool: React.FC = () => {
           size: searchablePdfData.byteLength,
           type: 'application/pdf',
           lastModified: Date.now(),
-          file: new File([searchablePdfData], outputFileName, { type: 'application/pdf' }),
+          file: new File([searchablePdfBuffer], outputFileName, { type: 'application/pdf' }),
           pageCount: selectedFile.pageCount,
           data: searchablePdfData
         } as any
@@ -397,6 +396,10 @@ const OCRTool: React.FC = () => {
         const textData = new Uint8Array(await textBlob.arrayBuffer())
         
         const textFileName = selectedFile.name.replace(/\.pdf$/i, '_ocr_text.txt')
+        const textBuffer = textData.buffer.slice(
+          textData.byteOffset,
+          textData.byteOffset + textData.byteLength
+        ) as ArrayBuffer
         
         const textFile = {
           id: `ocr-text-${Date.now()}`,
@@ -404,7 +407,7 @@ const OCRTool: React.FC = () => {
           size: textData.byteLength,
           type: 'text/plain',
           lastModified: Date.now(),
-          file: new File([textData], textFileName, { type: 'text/plain' }),
+          file: new File([textBuffer], textFileName, { type: 'text/plain' }),
           data: textData
         } as any
         
@@ -419,7 +422,9 @@ const OCRTool: React.FC = () => {
 
       console.log('OCR processing completed', { 
         pages: results.length,
-        avgConfidence: results.reduce((sum, r) => sum + r.confidence, 0) / results.length,
+        avgConfidence: results.length > 0
+          ? results.reduce((sum, r) => sum + r.confidence, 0) / results.length
+          : 0,
         totalText: results.reduce((sum, r) => sum + r.text.length, 0),
         options 
       })    } catch (error) {

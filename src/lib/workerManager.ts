@@ -183,6 +183,20 @@ class WorkerManager {
     return worker.renderPageAsImage(pdfData, pageIndex, options)
   }
 
+  async generateThumbnails(
+    pdfData: Uint8Array,
+    pageIndices: number[],
+    options?: { scale?: number; format?: 'png' | 'jpeg' }
+  ): Promise<ImageData[]> {
+    const thumbnails: ImageData[] = []
+
+    for (const pageIndex of pageIndices) {
+      thumbnails.push(await this.renderPageAsImage(pdfData, pageIndex, options))
+    }
+
+    return thumbnails
+  }
+
   async mergePDFs(pdfDatas: Uint8Array[]): Promise<Uint8Array> {
     const worker = await this.getPDFWorker()
     return worker.mergePDFs(pdfDatas)
@@ -307,12 +321,15 @@ class WorkerManager {
     const pageCount = await pdfWorker.getPageCount(pdfData)
     const pagesOcrData = []
     const scale = 2.0 // Use high quality for OCR
+    const language = options.language
+      || options.ocrLanguage?.join?.('+')
+      || 'eng'
 
     for (let i = 0; i < pageCount; i++) {
       const imageData = await pdfWorker.renderPageAsImage(pdfData, i, { scale })
 
       const ocrResult = await ocrWorker.performOCR(imageData, {
-        language: options.language || 'eng'
+        language
       })
 
       pagesOcrData.push(ocrResult)

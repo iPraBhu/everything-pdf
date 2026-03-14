@@ -104,7 +104,7 @@ const TextExtractionTool: React.FC = () => {
     // Calculate word frequency
     const wordCounts: { [key: string]: number } = {}
     extractedText.forEach(page => {
-      const words = page.content.toLowerCase().match(/\b\w+\b/g) || []
+      const words: string[] = page.content.toLowerCase().match(/\b\w+\b/g) || []
       words.forEach(word => {
         if (word.length >= 3) { // Only count words with 3+ characters
           wordCounts[word] = (wordCounts[word] || 0) + 1
@@ -384,6 +384,10 @@ const TextExtractionTool: React.FC = () => {
       const outputData = new Uint8Array(await outputBlob.arrayBuffer())
       
       const outputFileName = selectedFile.name.replace(/\.pdf$/i, `_extracted.${fileExtension}`)
+      const outputBuffer = outputData.buffer.slice(
+        outputData.byteOffset,
+        outputData.byteOffset + outputData.byteLength
+      ) as ArrayBuffer
       
       const outputFile = {
         id: `extracted-text-${Date.now()}`,
@@ -391,7 +395,7 @@ const TextExtractionTool: React.FC = () => {
         size: outputData.byteLength,
         type: mimeType,
         lastModified: Date.now(),
-        file: new File([outputData], outputFileName, { type: mimeType }),
+        file: new File([outputBuffer], outputFileName, { type: mimeType }),
         data: outputData
       } as any
       
@@ -407,7 +411,7 @@ const TextExtractionTool: React.FC = () => {
       console.log('Text extraction completed', { 
         pages: results.length,
         totalWords: results.reduce((sum, r) => sum + r.wordCount, 0),
-        avgConfidence: results.reduce((sum, r) => sum + r.confidence, 0) / results.length,
+        avgConfidence: results.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / results.length,
         options 
       })
 
