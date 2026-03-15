@@ -149,31 +149,37 @@ class WorkerManager {
   }
 
   async terminateAll(): Promise<void> {
-    const promises: Promise<void>[] = []
+    const ocrWorker = this.ocrWorker
+    const ocrWorkerInstance = this.ocrWorkerInstance
+    const pdfWorkerInstance = this.pdfWorkerInstance
+    const imageWorkerInstance = this.imageWorkerInstance
 
-    if (this.ocrWorker) {
-      promises.push(this.ocrWorker.terminate())
-      this.ocrWorker = null
+    this.ocrWorker = null
+    this.ocrWorkerInstance = null
+    this.pdfWorker = null
+    this.pdfWorkerInstance = null
+    this.imageWorker = null
+    this.imageWorkerInstance = null
+
+    if (ocrWorker) {
+      try {
+        await ocrWorker.terminate()
+      } catch {
+        // The dedicated worker may already be closing; fall back to force-termination below.
+      }
     }
 
-    if (this.pdfWorkerInstance) {
-      this.pdfWorkerInstance.terminate()
-      this.pdfWorkerInstance = null
-      this.pdfWorker = null
+    if (pdfWorkerInstance) {
+      pdfWorkerInstance.terminate()
     }
 
-    if (this.ocrWorkerInstance) {
-      this.ocrWorkerInstance.terminate()
-      this.ocrWorkerInstance = null
+    if (ocrWorkerInstance) {
+      ocrWorkerInstance.terminate()
     }
 
-    if (this.imageWorkerInstance) {
-      this.imageWorkerInstance.terminate()
-      this.imageWorkerInstance = null
-      this.imageWorker = null
+    if (imageWorkerInstance) {
+      imageWorkerInstance.terminate()
     }
-
-    await Promise.all(promises)
   }
 
   async terminatePDFWorker(): Promise<void> {
@@ -185,14 +191,22 @@ class WorkerManager {
   }
 
   async terminateOCRWorker(): Promise<void> {
-    if (this.ocrWorker) {
-      await this.ocrWorker.terminate()
-      this.ocrWorker = null
+    const ocrWorker = this.ocrWorker
+    const ocrWorkerInstance = this.ocrWorkerInstance
+
+    this.ocrWorker = null
+    this.ocrWorkerInstance = null
+
+    if (ocrWorker) {
+      try {
+        await ocrWorker.terminate()
+      } catch {
+        // Fall through and force-terminate the dedicated worker instance.
+      }
     }
 
-    if (this.ocrWorkerInstance) {
-      this.ocrWorkerInstance.terminate()
-      this.ocrWorkerInstance = null
+    if (ocrWorkerInstance) {
+      ocrWorkerInstance.terminate()
     }
   }
 

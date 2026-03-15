@@ -2,21 +2,10 @@ import { PDFDocument, PDFPage, rgb, degrees } from 'pdf-lib'
 import * as pdfjs from 'pdfjs-dist'
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 
-// Configure pdf.js worker - use the bundled worker
-if (typeof window !== 'undefined') {
-  // Try to use the local worker file first
-  pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.js`
-} else {
-  // For server-side rendering or Node.js environment
-  try {
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.mjs',
-      import.meta.url
-    ).toString()
-  } catch (e) {
-    console.warn('Failed to set PDF worker source:', e)
-  }
-}
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).toString()
 
 /**
  * PDF processing utilities
@@ -59,7 +48,9 @@ export interface PageInfo {
  */
 export async function loadPDFDocument(data: Uint8Array): Promise<PDFDocumentProxy> {
   try {
-    const loadingTask = pdfjs.getDocument({ data })
+    // PDF.js can transfer ownership of TypedArray buffers, so clone the input
+    // to keep shared fixture data and app state reusable across operations.
+    const loadingTask = pdfjs.getDocument({ data: data.slice() })
     return await loadingTask.promise
   } catch (error) {
     throw new Error(`Failed to load PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)

@@ -4,10 +4,10 @@ import { PDFDocumentProxy } from 'pdfjs-dist'
 import { ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, Download, Maximize2 } from 'lucide-react'
 import { useAppStore } from '../state/store'
 
-// Configure PDF.js worker to use local file
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.js`
-}
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).toString()
 
 interface PDFViewerProps {
   file?: File

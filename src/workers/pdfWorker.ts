@@ -37,6 +37,101 @@ export interface PDFWorkerAPI {
 }
 
 class PDFWorker implements PDFWorkerAPI {
+  private createOffscreenCanvasFactory() {
+    return {
+      create: (width: number, height: number) => {
+        const canvas = new OffscreenCanvas(width, height)
+        const context = canvas.getContext('2d')
+
+        if (!context) {
+          throw new Error('Failed to create an OffscreenCanvas 2D context.')
+        }
+
+        return { canvas, context }
+      },
+      reset: (
+        canvasAndContext: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D },
+        width: number,
+        height: number
+      ) => {
+        canvasAndContext.canvas.width = width
+        canvasAndContext.canvas.height = height
+      },
+      destroy: (
+        canvasAndContext: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D }
+      ) => {
+        canvasAndContext.canvas.width = 0
+        canvasAndContext.canvas.height = 0
+      }
+    }
+  }
+
+  private createNoopFilterFactory() {
+    return class {
+      addFilter() {
+        return 'none'
+      }
+
+      addHCMFilter() {
+        return 'none'
+      }
+
+      addAlphaFilter() {
+        return 'none'
+      }
+
+      addLuminosityFilter() {
+        return 'none'
+      }
+
+      addHighlightHCMFilter() {
+        return 'none'
+      }
+
+      destroy() {}
+    }
+  }
+
+  private getPdfJsDocument(pdfData: Uint8Array) {
+    const CanvasFactory = class {
+      create(width: number, height: number) {
+        const canvas = new OffscreenCanvas(width, height)
+        const context = canvas.getContext('2d')
+
+        if (!context) {
+          throw new Error('Failed to create an OffscreenCanvas 2D context.')
+        }
+
+        return { canvas, context }
+      }
+
+      reset(
+        canvasAndContext: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D },
+        width: number,
+        height: number
+      ) {
+        canvasAndContext.canvas.width = width
+        canvasAndContext.canvas.height = height
+      }
+
+      destroy(
+        canvasAndContext: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D }
+      ) {
+        canvasAndContext.canvas.width = 0
+        canvasAndContext.canvas.height = 0
+      }
+    }
+
+    return pdfjsLib.getDocument({
+      data: pdfData.slice(),
+      CanvasFactory,
+      FilterFactory: this.createNoopFilterFactory(),
+      disableFontFace: true,
+      isOffscreenCanvasSupported: true,
+      isImageDecoderSupported: false
+    })
+  }
+
   private normalizeColor(input: any, fallback = { r: 0, g: 0, b: 0 }) {
     if (typeof input === 'string' && /^#?[0-9a-f]{6}$/i.test(input)) {
       const hex = input.startsWith('#') ? input.slice(1) : input
@@ -90,7 +185,7 @@ class PDFWorker implements PDFWorkerAPI {
 
     try {
       // Load PDF with PDF.js for rendering
-      const loadingTask = pdfjsLib.getDocument({ data: pdfData })
+      const loadingTask = this.getPdfJsDocument(pdfData)
       const pdfDocument = await loadingTask.promise
 
       // Get the specific page
@@ -102,30 +197,7 @@ class PDFWorker implements PDFWorkerAPI {
       // Create canvas for rendering
       const canvas = new OffscreenCanvas(viewport.width, viewport.height)
       const context = canvas.getContext('2d')!
-      const canvasFactory = {
-        create: (width: number, height: number) => {
-          const factoryCanvas = new OffscreenCanvas(width, height)
-          const factoryContext = factoryCanvas.getContext('2d')!
-          return {
-            canvas: factoryCanvas,
-            context: factoryContext
-          }
-        },
-        reset: (
-          canvasAndContext: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D },
-          width: number,
-          height: number
-        ) => {
-          canvasAndContext.canvas.width = width
-          canvasAndContext.canvas.height = height
-        },
-        destroy: (
-          canvasAndContext: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D }
-        ) => {
-          canvasAndContext.canvas.width = 0
-          canvasAndContext.canvas.height = 0
-        }
-      }
+      const canvasFactory = this.createOffscreenCanvasFactory()
 
       // Render page to canvas
       const renderContext: any = {
@@ -1015,7 +1087,7 @@ class PDFWorker implements PDFWorkerAPI {
   async analyzeEncryption(pdfData: Uint8Array): Promise<any> {
     try {
       // Load with pdf.js to analyze encryption
-      const loadingTask = pdfjsLib.getDocument({ data: pdfData })
+      const loadingTask = this.getPdfJsDocument(pdfData)
       const pdfDocument = await loadingTask.promise
       const permissions = await pdfDocument.getPermissions()
       await pdfDocument.destroy()
