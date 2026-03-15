@@ -88,7 +88,7 @@ const Editor: React.FC = () => {
     <div className="page-shell pt-4">
       <div className="editor-surface flex min-h-[calc(100vh-10rem)] overflow-hidden">
         {leftPanelOpen && (
-          <aside className="fixed inset-x-4 bottom-4 top-24 z-20 flex flex-col rounded-[28px] border bg-[color:var(--bg-elevated)] shadow-2xl backdrop-blur-xl lg:static lg:inset-auto lg:z-0 lg:w-80 lg:rounded-none lg:border-0 lg:border-r lg:border-[color:var(--line)] lg:bg-transparent lg:shadow-none lg:backdrop-blur-0">
+          <aside className="fixed inset-x-4 bottom-4 top-24 z-20 flex flex-col rounded-[28px] border bg-[color:var(--bg-elevated)] shadow-2xl lg:static lg:inset-auto lg:z-0 lg:w-80 lg:rounded-none lg:border-0 lg:border-r lg:border-[color:var(--line)] lg:bg-transparent lg:shadow-none">
             <div className="flex border-b border-[color:var(--line)]">
               <button
                 onClick={() => setActiveLeftTab('files')}
@@ -121,8 +121,8 @@ const Editor: React.FC = () => {
                     {...getRootProps()}
                     className={`rounded-[24px] border-2 border-dashed p-6 text-center transition-colors ${
                       isDragActive
-                        ? 'border-[color:var(--accent)] bg-white/70'
-                        : 'border-[color:var(--line-strong)] bg-white/35 hover:border-[color:var(--accent)] dark:bg-white/5'
+                        ? 'border-[color:var(--accent)] bg-[color:var(--bg-strong)]'
+                        : 'border-[color:var(--line-strong)] bg-[color:var(--bg-strong)] hover:border-[color:var(--accent)]'
                     }`}
                   >
                     <input {...getInputProps()} />
@@ -141,8 +141,8 @@ const Editor: React.FC = () => {
                           onClick={() => setActiveFile(file.id)}
                           className={`w-full rounded-[20px] border p-3 text-left transition-colors ${
                             activeFileId === file.id
-                              ? 'border-[color:var(--accent)] bg-white/75'
-                              : 'border-[color:var(--line)] bg-white/40 hover:border-[color:var(--accent)] dark:bg-white/5'
+                              ? 'border-[color:var(--accent)] bg-[color:var(--bg-strong)]'
+                              : 'border-[color:var(--line)] bg-[color:var(--bg-elevated)] hover:border-[color:var(--accent)]'
                           }`}
                         >
                           <div className="flex items-center">
@@ -208,7 +208,7 @@ const Editor: React.FC = () => {
         </section>
 
         {rightPanelOpen && (
-          <aside className="fixed inset-x-4 bottom-4 top-24 z-20 flex flex-col rounded-[28px] border bg-[color:var(--bg-elevated)] shadow-2xl backdrop-blur-xl lg:static lg:inset-auto lg:z-0 lg:w-80 lg:rounded-none lg:border-0 lg:border-l lg:border-[color:var(--line)] lg:bg-transparent lg:shadow-none lg:backdrop-blur-0">
+          <aside className="fixed inset-x-4 bottom-4 top-24 z-20 flex flex-col rounded-[28px] border bg-[color:var(--bg-elevated)] shadow-2xl lg:static lg:inset-auto lg:z-0 lg:w-80 lg:rounded-none lg:border-0 lg:border-l lg:border-[color:var(--line)] lg:bg-transparent lg:shadow-none">
             <div className="flex border-b border-[color:var(--line)]">
               <button
                 onClick={() => setActiveRightTab('properties')}

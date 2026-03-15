@@ -73,17 +73,17 @@ export function Help() {
               Working guide
             </div>
             <h1 className="text-balance text-4xl leading-none text-[color:var(--ink)] sm:text-5xl lg:text-6xl">
-              The shortest path from dropped file to finished document.
+              A straightforward guide to how the PDF workspace behaves.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-[color:var(--ink-muted)] sm:text-lg">
-              This page explains how the workbench is structured, what is already reliable, and where the browser runtime still imposes limits.
+              This page explains what is reliable today, what stays local, and where the browser runtime still imposes limits.
             </p>
           </div>
 
           <div className="grid gap-4">
             {playbook.map((step, index) => (
               <div key={step.title} className="card p-5">
-                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(212,93,66,0.12)] text-sm font-semibold text-[color:var(--accent)]">
+                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--surface-muted)] text-sm font-semibold text-[color:var(--accent)]">
                   {index + 1}
                 </div>
                 <h2 className="mb-2 text-2xl text-[color:var(--ink)]">{step.title}</h2>
@@ -103,13 +103,13 @@ export function Help() {
               const Icon = group.icon
               return (
                 <div key={group.title} className="card p-5">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] bg-[rgba(15,159,155,0.12)] text-[color:var(--accent-2)]">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] bg-[color:var(--surface-muted)] text-[color:var(--accent-2)]">
                     <Icon className="h-5 w-5" />
                   </div>
                   <h3 className="mb-3 text-2xl text-[color:var(--ink)]">{group.title}</h3>
                   <div className="space-y-2">
                     {group.items.map((item) => (
-                      <div key={item} className="rounded-full border border-[color:var(--line)] px-3 py-2 text-sm text-[color:var(--ink-muted)]">
+                      <div key={item} className="rounded-full border border-[color:var(--line)] bg-[color:var(--bg-elevated)] px-3 py-2 text-sm text-[color:var(--ink)]">
                         {item}
                       </div>
                     ))}
@@ -125,7 +125,7 @@ export function Help() {
             const Icon = item.icon
             return (
               <div key={item.title} className="card p-5">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] bg-[rgba(212,93,66,0.12)] text-[color:var(--accent)]">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] bg-[color:var(--surface-muted)] text-[color:var(--accent)]">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="mb-2 text-2xl text-[color:var(--ink)]">{item.title}</h3>
@@ -184,7 +184,7 @@ export function Help() {
             ))}
           </div>
 
-          <div className="mt-5 rounded-[24px] border border-[color:var(--line)] bg-white/50 p-5 dark:bg-white/5">
+            <div className="mt-5 rounded-[24px] border border-[color:var(--line)] bg-[color:var(--bg-elevated)] p-5">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--ink-muted)]">
               <Globe className="h-4 w-4" />
               Support line

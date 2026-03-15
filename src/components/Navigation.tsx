@@ -32,18 +32,20 @@ export function Navigation() {
   return (
     <header className="relative z-20 px-4 pt-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px]">
-        <div className="glass-panel overflow-hidden">
+        <div className="glass-panel overflow-hidden border-[color:var(--line-strong)]">
           <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
             <div className="flex items-center gap-3">
               <Link to="/" className="group flex items-center gap-3" onClick={() => setMobileOpen(false)}>
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[18px] border border-white/30 bg-[linear-gradient(135deg,rgba(212,93,66,0.16),rgba(15,159,155,0.18))] shadow-lg">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[16px] border border-[color:var(--line)] bg-[color:var(--bg-strong)] shadow-sm">
                   <BrandMark
                     className="h-9 w-9 transition-transform duration-300 group-hover:scale-105"
-                    imageClassName="drop-shadow-[0_8px_20px_rgba(0,0,0,0.18)]"
+                    imageClassName="drop-shadow-[0_6px_16px_rgba(0,0,0,0.12)]"
                   />
                 </div>
                 <div>
-                  <div className="section-label mb-1">Paper Engine</div>
+                  <div className="mb-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[color:var(--ink-muted)]">
+                    Local PDF workspace
+                  </div>
                   <div className="text-lg font-semibold text-[color:var(--ink)] sm:text-xl">
                     Free Everything PDF
                   </div>
@@ -59,15 +61,16 @@ export function Navigation() {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`group flex items-center gap-3 rounded-full px-4 py-2 transition-all ${
+                    aria-current={active ? 'page' : undefined}
+                    className={`group flex items-center gap-3 rounded-full border px-4 py-2 transition-all ${
                       active
-                        ? 'bg-[color:var(--ink)] text-[color:var(--bg-strong)] shadow-lg'
-                        : 'text-[color:var(--ink-muted)] hover:bg-white/50 hover:text-[color:var(--ink)] dark:hover:bg-white/10'
+                        ? 'border-[rgba(178,75,48,0.28)] bg-[color:var(--bg-strong)] text-[color:var(--ink)] shadow-sm'
+                        : 'border-transparent text-[color:var(--ink-muted)] hover:border-[color:var(--line)] hover:bg-[color:var(--bg-strong)] hover:text-[color:var(--ink)]'
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className={`h-4 w-4 ${active ? 'text-[color:var(--accent)]' : ''}`} />
                     <span className="text-sm font-semibold">{item.name}</span>
-                    <span className={`text-[0.63rem] uppercase tracking-[0.24em] ${active ? 'text-white/70' : 'text-[color:var(--ink-muted)]'}`}>
+                    <span className={`text-[0.63rem] uppercase tracking-[0.24em] ${active ? 'text-[color:var(--accent)]' : 'text-[color:var(--ink-muted)]'}`}>
                       {item.accent}
                     </span>
                   </Link>
@@ -76,7 +79,7 @@ export function Navigation() {
             </nav>
 
             <div className="flex items-center gap-2">
-              <div className="hidden items-center gap-2 rounded-full border border-[color:var(--line)] bg-white/50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--ink-muted)] md:flex dark:bg-white/5">
+              <div className="hidden items-center gap-2 rounded-full border border-[color:var(--line)] bg-[color:var(--bg-strong)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--ink-muted)] md:flex">
                 Client-Side
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </div>
@@ -110,11 +113,12 @@ export function Navigation() {
                     <Link
                       key={item.path}
                       to={item.path}
+                      aria-current={active ? 'page' : undefined}
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center justify-between rounded-[20px] px-4 py-3 transition-all ${
                         active
-                          ? 'bg-[color:var(--ink)] text-[color:var(--bg-strong)]'
-                          : 'bg-white/50 text-[color:var(--ink)] dark:bg-white/5'
+                          ? 'border border-[rgba(178,75,48,0.28)] bg-[color:var(--bg-strong)] text-[color:var(--ink)]'
+                          : 'border border-[color:var(--line)] bg-[color:var(--bg-strong)] text-[color:var(--ink)]'
                       }`}
                     >
                       <div className="flex items-center gap-3">

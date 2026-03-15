@@ -23,22 +23,22 @@ import type { PDFFile } from '../state/store'
 
 const spotlightTools = [
   {
-    title: 'Merge Stack',
-    detail: 'Assemble multi-file packets with visual order control.',
+    title: 'Merge PDFs',
+    detail: 'Combine multiple files into one clean output with visual order control.',
     route: '/tools?tool=merge',
-    accent: 'from-[#d45d42] to-[#f1996b]'
+    accent: 'from-[#b24b30] to-[#d98462]'
   },
   {
-    title: 'Searchable Scan',
+    title: 'Searchable PDF',
     detail: 'Run OCR and add a text layer without leaving the browser.',
     route: '/tools?tool=searchable-pdf',
-    accent: 'from-[#0f9f9b] to-[#65d8c4]'
+    accent: 'from-[#0d6662] to-[#43b8b2]'
   },
   {
-    title: 'Layout Lab',
+    title: 'Page Layout',
     detail: 'Posterize, n-up, crop, reorder, and build print-ready sets.',
     route: '/tools?tool=nup',
-    accent: 'from-[#4831a5] to-[#7a68df]'
+    accent: 'from-[#4b5b6f] to-[#8697ab]'
   }
 ]
 
@@ -149,10 +149,10 @@ export function Home() {
 
             <div className="max-w-3xl space-y-4">
               <h1 className="text-balance text-4xl leading-none text-[color:var(--ink)] sm:text-5xl lg:text-7xl">
-                Free Everything PDF is a browser-native studio that feels like a desk, not a dashboard.
+                Clear, local PDF tools for review, cleanup, OCR, and export.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-[color:var(--ink-muted)] sm:text-lg">
-                Load files, arrange pages, run OCR, export layouts, and keep everything local. The interface is built for focused document work on mobile and desktop instead of checkbox-style SaaS chrome.
+                Load files, organize pages, run OCR, and export without sending documents anywhere. The interface is built to stay readable and calm on both desktop and mobile.
               </p>
             </div>
 
@@ -169,7 +169,7 @@ export function Home() {
 
             <div className="feature-grid">
               {stats.map((item) => (
-                <div key={item.label} className="card p-4">
+                <div key={item.label} className="card bg-[color:var(--bg-elevated)] p-4">
                   <div className="text-3xl font-semibold text-[color:var(--ink)]">{item.value}</div>
                   <div className="mt-1 text-xs uppercase tracking-[0.24em] text-[color:var(--ink-muted)]">
                     {item.label}
@@ -188,7 +188,7 @@ export function Home() {
                 style={{ animationDelay: `${index * 90}ms` }}
               >
                 <div className={`mb-4 inline-flex rounded-full bg-gradient-to-r ${tool.accent} px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white`}>
-                  Tool Lane
+                  Featured
                 </div>
                 <h2 className="mb-2 text-2xl text-[color:var(--ink)]">{tool.title}</h2>
                 <p className="max-w-sm text-sm leading-6 text-[color:var(--ink-muted)]">{tool.detail}</p>
@@ -208,23 +208,23 @@ export function Home() {
           <input {...getInputProps()} />
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <div className="section-label mb-2">Drop Deck</div>
-              <h2 className="text-3xl text-[color:var(--ink)]">Bring in your pages</h2>
+              <div className="section-label mb-2">Start here</div>
+              <h2 className="text-3xl text-[color:var(--ink)]">Add PDFs to your session</h2>
             </div>
-            <div className="hidden h-14 w-14 items-center justify-center rounded-[18px] border border-[color:var(--line)] bg-white/60 md:flex dark:bg-white/5">
+            <div className="hidden h-14 w-14 items-center justify-center rounded-[18px] border border-[color:var(--line)] bg-[color:var(--bg-elevated)] md:flex">
               <FileText className="h-6 w-6" />
             </div>
           </div>
 
-          <div className="rounded-[26px] border border-dashed border-[color:var(--line-strong)] bg-white/45 p-6 text-center dark:bg-white/5 sm:p-10">
+          <div className="rounded-[26px] border border-dashed border-[color:var(--line-strong)] bg-[color:var(--bg-elevated)] p-6 text-center sm:p-10">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--accent),var(--accent-2))] text-white shadow-lg">
               <CloudUpload className="h-7 w-7" />
             </div>
             <p className="text-lg font-semibold text-[color:var(--ink)]">
-              {isLoading ? 'Loading PDF files…' : isDragActive ? 'Release files to add them to the workbench' : 'Drop files here or tap to browse'}
+              {isLoading ? 'Loading PDF files...' : isDragActive ? 'Release files to add them to the session' : 'Drop files here or choose PDFs to begin'}
             </p>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[color:var(--ink-muted)]">
-              Built for touch and keyboard. Start with a single PDF or a stack of scans and jump straight into merge, split, OCR, and cleanup flows.
+              Start with one file or a batch. From here you can jump into merge, split, OCR, cleanup, and export flows without leaving the browser.
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
               <span className="pill">PDF only</span>
@@ -239,7 +239,7 @@ export function Home() {
             const Icon = note.icon
             return (
               <div key={note.title} className="card p-5">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] bg-[rgba(212,93,66,0.12)] text-[color:var(--accent)]">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] bg-[color:var(--surface-muted)] text-[color:var(--accent)]">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="mb-2 text-xl text-[color:var(--ink)]">{note.title}</h3>
@@ -251,11 +251,11 @@ export function Home() {
       </section>
 
       <section className="mb-6">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div>
-            <div className="section-label mb-2">Quick starts</div>
-            <h2 className="text-3xl text-[color:var(--ink)]">Jump into a focused flow</h2>
-          </div>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="section-label mb-2">Quick starts</div>
+              <h2 className="text-3xl text-[color:var(--ink)]">Open a common workflow</h2>
+            </div>
           <button onClick={() => navigate('/tools')} className="btn btn-ghost hidden sm:inline-flex">
             All tools
             <ArrowRight className="h-4 w-4" />
@@ -310,7 +310,7 @@ export function Home() {
                     className="h-20 w-16 rounded-[16px] border border-[color:var(--line)] object-cover shadow-sm"
                   />
                 ) : (
-                  <div className="flex h-20 w-16 items-center justify-center rounded-[16px] border border-[color:var(--line)] bg-white/70 dark:bg-white/5">
+                  <div className="flex h-20 w-16 items-center justify-center rounded-[16px] border border-[color:var(--line)] bg-[color:var(--bg-elevated)]">
                     <FileText className="h-6 w-6 text-[color:var(--accent)]" />
                   </div>
                 )}

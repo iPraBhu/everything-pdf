@@ -103,16 +103,16 @@ const tools: Tool[] = [
 ]
 
 const categories = [
-  { id: 'all', name: 'All Lanes', icon: Wrench, accent: 'Linear pass', gradient: 'from-[#2a1e17] to-[#594235]' },
-  { id: 'viewer', name: 'Viewer & Organize', icon: Eye, accent: 'Sort and inspect', gradient: 'from-[#d45d42] to-[#f2996b]' },
-  { id: 'edit', name: 'Edit', icon: Edit, accent: 'Mark and adjust', gradient: 'from-[#0f9f9b] to-[#65d8c4]' },
-  { id: 'layout', name: 'Layout', icon: Layout, accent: 'Print architecture', gradient: 'from-[#4b4db6] to-[#8e84f0]' },
-  { id: 'convert', name: 'Convert', icon: RefreshCw, accent: 'Format bridge', gradient: 'from-[#d98f2d] to-[#f3c15b]' },
-  { id: 'forms', name: 'Forms', icon: FileText, accent: 'Structured input', gradient: 'from-[#b04f90] to-[#dd85c7]' },
-  { id: 'security', name: 'Security', icon: Shield, accent: 'Guard rails', gradient: 'from-[#a14033] to-[#d66d5c]' },
-  { id: 'optimize', name: 'Optimize', icon: Zap, accent: 'Lean output', gradient: 'from-[#11795d] to-[#6fdfab]' },
-  { id: 'ocr', name: 'OCR', icon: Scan, accent: 'Machine reading', gradient: 'from-[#2d6586] to-[#74c7f1]' },
-  { id: 'advanced', name: 'Advanced', icon: Settings, accent: 'Roadmap lane', gradient: 'from-[#454545] to-[#8f8f8f]' }
+  { id: 'all', name: 'All Tools', icon: Wrench, accent: 'Everything in one view', gradient: 'from-[#29323b] to-[#5b6978]' },
+  { id: 'viewer', name: 'Viewer & Organize', icon: Eye, accent: 'Inspect and reorder', gradient: 'from-[#b24b30] to-[#d98462]' },
+  { id: 'edit', name: 'Edit', icon: Edit, accent: 'Adjust page content', gradient: 'from-[#0d6662] to-[#43b8b2]' },
+  { id: 'layout', name: 'Layout', icon: Layout, accent: 'Print and arrangement', gradient: 'from-[#526274] to-[#8799ab]' },
+  { id: 'convert', name: 'Convert', icon: RefreshCw, accent: 'Move between formats', gradient: 'from-[#a9781b] to-[#d2aa59]' },
+  { id: 'forms', name: 'Forms', icon: FileText, accent: 'Structured document input', gradient: 'from-[#6a5565] to-[#9a7f95]' },
+  { id: 'security', name: 'Security', icon: Shield, accent: 'Metadata and safeguards', gradient: 'from-[#8e4b3a] to-[#c17e69]' },
+  { id: 'optimize', name: 'Optimize', icon: Zap, accent: 'Reduce and streamline', gradient: 'from-[#245f49] to-[#56a37f]' },
+  { id: 'ocr', name: 'OCR', icon: Scan, accent: 'Extract readable text', gradient: 'from-[#245c73] to-[#6aa8c0]' },
+  { id: 'advanced', name: 'Advanced', icon: Settings, accent: 'Planned capabilities', gradient: 'from-[#50545b] to-[#8a9198]' }
 ]
 
 export function Tools() {
@@ -177,10 +177,10 @@ export function Tools() {
             <div className="section-label">Tool atlas</div>
             <div className="max-w-3xl">
               <h1 className="text-balance text-4xl leading-none text-[color:var(--ink)] sm:text-5xl lg:text-6xl">
-                A document workshop arranged in lanes, not a pile of random utilities.
+                Find the right PDF tool quickly, with clearer categories and fewer distractions.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[color:var(--ink-muted)] sm:text-lg">
-                Move from review to repair, layout, OCR, and export without losing context. Implemented tools open directly; roadmap items stay visible but clearly marked.
+                Browse by task, search by name, and open implemented tools directly. Planned items stay visible, but they are clearly separated from what works today.
               </p>
             </div>
 
@@ -201,12 +201,12 @@ export function Tools() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="card p-5">
-              <div className={`mb-4 inline-flex rounded-full bg-gradient-to-r ${activeCategory.gradient} px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white`}>
-                Active lane
-              </div>
-              <h2 className="mb-2 text-2xl text-[color:var(--ink)]">{activeCategory.name}</h2>
-              <p className="text-sm leading-6 text-[color:var(--ink-muted)]">{activeCategory.accent}</p>
+              <div className="card p-5">
+                <div className={`mb-4 inline-flex rounded-full bg-gradient-to-r ${activeCategory.gradient} px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white`}>
+                  Active category
+                </div>
+                <h2 className="mb-2 text-2xl text-[color:var(--ink)]">{activeCategory.name}</h2>
+                <p className="text-sm leading-6 text-[color:var(--ink-muted)]">{activeCategory.accent}</p>
             </div>
             <div className="card p-5">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[color:var(--ink)]">
@@ -235,11 +235,11 @@ export function Tools() {
               : tools.filter((tool) => tool.category === category.id).length
 
             return (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`tool-tile w-full ${active ? 'ring-2 ring-[rgba(212,93,66,0.18)]' : ''}`}
-              >
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={`tool-tile w-full ${active ? 'border-[color:var(--accent-2)] ring-2 ring-[rgba(13,102,98,0.12)]' : ''}`}
+                  >
                 <div className="flex items-start gap-4">
                   <div className={`flex h-12 w-12 items-center justify-center rounded-[16px] bg-gradient-to-r ${category.gradient} text-white shadow-lg`}>
                     <Icon className="h-5 w-5" />
@@ -286,8 +286,8 @@ export function Tools() {
                       </div>
                       <span className={`rounded-full px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] ${
                         isAvailable
-                          ? 'bg-[rgba(15,159,155,0.12)] text-[color:var(--accent-2)]'
-                          : 'bg-[rgba(212,93,66,0.12)] text-[color:var(--accent)]'
+                          ? 'bg-[rgba(13,102,98,0.12)] text-[color:var(--accent-2)]'
+                          : 'bg-[color:var(--surface-muted)] text-[color:var(--ink-muted)]'
                       }`}>
                         {isAvailable ? 'Ready' : 'Planned'}
                       </span>
